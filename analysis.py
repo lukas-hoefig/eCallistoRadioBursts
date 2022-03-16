@@ -113,15 +113,15 @@ def createDay(_year: int, _month: int, _day: int, _observatory: observatories.Ob
     files_day = sorted(os.listdir(path))
     spectral_id = next(key for key, s_range in _observatory.spectral_range.items() if s_range == _spectral_range)
     files_observatory = []
-    data = []
+    data_day = []
 
     for file in files_day:
         if file.startswith(_observatory.name) and file.endswith(spectral_id + data.DataPoint.file_ending):
             files_observatory.append(file)
 
     for file in files_observatory:
-        data.append(data.DataPoint(file))  # try except |error -> TRIEST_20210906_234530_57.fit   TODO
-    return data
+        data_day.append(data.DataPoint(file))  # try except |error -> TRIEST_20210906_234530_57.fit   TODO
+    return data_day
 
 
 def fitTimeFrameDataSample(_data_point1: List[data.DataPoint], _data_point2: List[data.DataPoint]):
@@ -235,15 +235,15 @@ def getPeaksFromCorrelation(correlation: List[float], starting_time: float,
         print("Burst(s) detected {}  {}  \n".format(observatories[0].name, observatories[1].name), bursts)
 
 
-def plot_data_time(time: List[float], data: List[float], time_start: float,
+def plot_data_time(_time: List[float], _data: List[float], _time_start: float,
                    _year: int, _month: int, _day: int, _obs1: str, _obs2: str, _nobg: bool, _bin_freq: bool,
                    _bin_time: bool, _flatten: bool, _bin_time_width: int, _flatten_window: int, _rolling_window: int,
                    _plot=True):
     """
 
-    :param time:
-    :param data:
-    :param time_start:
+    :param _time:
+    :param _data:
+    :param _time_start:
     :param _year:
     :param _month:
     :param _day:
@@ -264,12 +264,12 @@ def plot_data_time(time: List[float], data: List[float], time_start: float,
     else:
         data_per_second = DATA_POINTS_PER_SECOND
     time_axis_plot = []
-    for i in range(len(time)):
+    for i in range(len(_time)):
         time_axis_plot.append(
-            datetime.fromtimestamp(time_start + i / data_per_second).strftime("%D %H:%M:%S.%f")[:-3])
+            datetime.fromtimestamp(_time_start + i / data_per_second).strftime("%D %H:%M:%S.%f")[:-3])
     time_axis_plot = pd.to_datetime(time_axis_plot)
     dataframe = pd.DataFrame()
-    dataframe['data'] = data
+    dataframe['data'] = _data
     dataframe = dataframe.set_index(time_axis_plot)
 
     file_name = "{}_{}_{}_{}_{}_{}{}{}{}{}.png".format(_year, _month, _day, _obs1, _obs2, _rolling_window,
