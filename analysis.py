@@ -95,6 +95,7 @@ def correlateLightCurves(_data_point1: data.DataPoint, _data_point2: data.DataPo
                                                                                  _data_point2.observatory]
 
 
+# -> data.py
 def createDay(_year: int, _month: int, _day: int, _observatory: observatories.Observatory,
               _spectral_range: List[int]):
     """
@@ -124,11 +125,14 @@ def createDay(_year: int, _month: int, _day: int, _observatory: observatories.Ob
     return data_day
 
 
+# -> data
 def fitTimeFrameDataSample(_data_point1: List[data.DataPoint], _data_point2: List[data.DataPoint]):
     """
     shortens the list of DataPoints of different timeframe to a single biggest possible timeframe
 
     TODO: where data is cut, and why
+
+    TODO: throw - no overlap
 
     :param _data_point1: List[DataPoints]
     :param _data_point2: List[DataPoints]
@@ -272,6 +276,7 @@ def plot_data_time(_time: List[float], _data: List[float], _time_start: float,
     dataframe['data'] = _data
     dataframe = dataframe.set_index(time_axis_plot)
 
+    # method this
     file_name = "{}_{}_{}_{}_{}_{}{}{}{}{}.png".format(_year, _month, _day, _obs1, _obs2, _rolling_window,
                                                        ["", "_nobg"][_nobg], ["", "_binfreq"][_bin_freq],
                                                        ["", "_bintime_{}".format(_bin_time_width)][_bin_time],
