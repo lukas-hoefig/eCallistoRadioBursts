@@ -12,13 +12,13 @@ import const
 import observatories
 import download
 
-path_script = eCallistoConst.path_script
-path_data = eCallistoConst.path_data
+path_script = const.path_script
+path_data = const.path_data
 FREQ_MIN = 0
 FREQ_MAX = 1
 BIN_WIDTH_FREQUENCY = 2
-DATA_POINTS_PER_SECOND = eCallistoConst.DATA_POINTS_PER_SECOND
-BIN_FACTOR = eCallistoConst.BIN_FACTOR
+DATA_POINTS_PER_SECOND = const.DATA_POINTS_PER_SECOND
+BIN_FACTOR = const.BIN_FACTOR
 CURVE_FLATTEN_WINDOW = 100
 
 
@@ -40,7 +40,7 @@ class DataPoint:
         self.file_name = reader
         reader = reader.rsplit('_')
 
-        self.observatory = eCallistoObservatories.observatories[reader[0]]
+        self.observatory = observatories.observatory_dict[reader[0]]
         self.year = int(reader[1][:4])
         self.month = int(reader[1][4:6])
         self.day = int(reader[1][6:])
@@ -91,10 +91,10 @@ class DataPoint:
         reads data from file
         called by __init__
         """
-        data_available, stations = eCallistoDownload.dataAvailable(self.year, self.month, self.day)
+        data_available, stations = download.dataAvailable(self.year, self.month, self.day)
         if data_available:
             if self.observatory.name not in stations:
-                eCallistoDownload.downloadFullDay(self.year, self.month, self.day, [self.observatory.name])
+                download.downloadFullDay(self.year, self.month, self.day, [self.observatory.name])
 
         self.spectrum_data = CallistoSpectrogram.read(self.path + self.file_name)
         self.number_values = len(self.spectrum_data.time_axis)

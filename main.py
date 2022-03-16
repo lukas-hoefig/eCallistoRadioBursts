@@ -41,30 +41,30 @@ def show_1():
     month = month_1
     day = day_1
 
-    obs_list = eCallistoObservatories.observatory_list
-    eCallistoDownload.downloadFullDay(year, month, day, eCallistoObservatories.observatory_list)
-    obs_0 = eCallistoObservatories.observatories[obs_list[0]]
-    obs_1 = eCallistoObservatories.observatories[obs_list[1]]
-    obs_2 = eCallistoObservatories.observatories[obs_list[2]]
-    obs_3 = eCallistoObservatories.observatories[obs_list[3]]
+    obs_list = observatories.observatory_list
+    download.downloadFullDay(year, month, day, observatories.observatory_list)
+    obs_0 = observatories.observatory_dict[obs_list[0]]
+    obs_1 = observatories.observatory_dict[obs_list[1]]
+    obs_2 = observatories.observatory_dict[obs_list[2]]
+    obs_3 = observatories.observatory_dict[obs_list[3]]
 
-    eCallistoDownload.downloadFullDay(year, month, day, obs_list)
-    corr0, time0, obs0 = eCallistoAnalysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
+    download.downloadFullDay(year, month, day, obs_list)
+    corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
                                                                   _plot=True, _bin_time=False)
-    # corr1, time1, obs1 = eCallistoAnalysis.correlateLightCurveDay(year, month, day, obs_0, obs_2, spec_range)
-    # corr2, time2, obs2 = eCallistoAnalysis.correlateLightCurveDay(year, month, day, obs_0, obs_3, spec_range,
+    # corr1, time1, obs1 = analysis.correlateLightCurveDay(year, month, day, obs_0, obs_2, spec_range)
+    # corr2, time2, obs2 = analysis.correlateLightCurveDay(year, month, day, obs_0, obs_3, spec_range,
     #                                                              _plot=True)
-    # corr3, time3, obs3 = eCallistoAnalysis.correlateLightCurveDay(year, month, day, obs_1, obs_2, spec_range)
-    # corr4, time4, obs4 = eCallistoAnalysis.correlateLightCurveDay(year, month, day, obs_1, obs_3, spec_range)
-    eCallistoAnalysis.getPeaksFromCorrelation(corr0, time0, obs0)
-    # eCallistoAnalysis.getPeaksFromCorrelation(corr1, time1, obs1)
-    # eCallistoAnalysis.getPeaksFromCorrelation(corr2, time2, obs2)
-    # eCallistoAnalysis.getPeaksFromCorrelation(corr3, time3, obs3)
-    # eCallistoAnalysis.getPeaksFromCorrelation(corr4, time4, obs4)
+    # corr3, time3, obs3 = analysis.correlateLightCurveDay(year, month, day, obs_1, obs_2, spec_range)
+    # corr4, time4, obs4 = analysis.correlateLightCurveDay(year, month, day, obs_1, obs_3, spec_range)
+    analysis.getPeaksFromCorrelation(corr0, time0, obs0)
+    # analysis.getPeaksFromCorrelation(corr1, time1, obs1)
+    # analysis.getPeaksFromCorrelation(corr2, time2, obs2)
+    # analysis.getPeaksFromCorrelation(corr3, time3, obs3)
+    # analysis.getPeaksFromCorrelation(corr4, time4, obs4)
 
-    corr0, time0, obs0 = eCallistoAnalysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
+    corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
                                                                   _plot=True, _no_background=True, _bin_time=False)
-    eCallistoAnalysis.getPeaksFromCorrelation(corr0, time0, obs0)
+    analysis.getPeaksFromCorrelation(corr0, time0, obs0)
     """
     http://soleil.i4ds.ch/solarradio/data/BurstLists/2010-yyyy_Monstein/2020/e-CALLISTO_2020_10.txt
     03: 24 - 03:24
@@ -92,13 +92,13 @@ def show_2():
     year = year_1
     month = month_1
     day = day_1
-    # eCallistoDownload.downloadFullDay(year, month, day, [eCallistoObservatories.observatory_list[0]])
-    data_day = eCallistoAnalysis.createDay(year, month, day, eCallistoObservatories.observatories[
-        eCallistoObservatories.observatory_list[0]], spec_range)
+    # download.downloadFullDay(year, month, day, [observatories.observatory_list[0]])
+    data_day = analysis.createDay(year, month, day, observatories.observatory_dict[
+        observatories.observatory_list[0]], spec_range)
     data_day = sum(data_day)
     data_day.plot()
     data_day.createSummedLightCurve(spec_range)
-    eCallistoAnalysis.plot_data_time(data_day.spectrum_data.time_axis, data_day.summedLightCurve,
+    analysis.plot_data_time(data_day.spectrum_data.time_axis, data_day.summedLightCurve,
                                      data_day.spectrum_data.start.timestamp())
     data_day.subtract_background()
     data_day.plot()
@@ -115,9 +115,9 @@ def show_3():
 
     """
     file = 'AUSTRIA-UNIGRAZ_20201023_113001_01.fit.gz'
-    dp = eCallistoData.DataPoint(file)
+    dp = data.DataPoint(file)
     dp.createSummedLightCurve(spec_range)
-    eCallistoAnalysis.plot_data_time(dp.spectrum_data.time_axis, dp.summedLightCurve,
+    analysis.plot_data_time(dp.spectrum_data.time_axis, dp.summedLightCurve,
                                      dp.spectrum_data.start.timestamp())
 
 
@@ -126,8 +126,8 @@ def show_4():
     month = month_1
     day = day_1
 
-    data_day = eCallistoAnalysis.createDay(year, month, day, eCallistoObservatories.observatories[
-        eCallistoObservatories.observatory_list[3]], spec_range)
+    data_day = analysis.createDay(year, month, day, observatories.observatory_dict[
+        observatories.observatory_list[3]], spec_range)
     data_day = sum(data_day)
     data_day.plot()
 
@@ -137,47 +137,47 @@ def show_5():
     month = month_2
     day = day_2
 
-    obs_list = eCallistoObservatories.observatory_list
-    eCallistoDownload.downloadFullDay(year, month, day, eCallistoObservatories.observatory_list)
-    obs_0 = eCallistoObservatories.observatories[obs_list[0]]
-    obs_1 = eCallistoObservatories.observatories[obs_list[1]]
-    obs_2 = eCallistoObservatories.observatories[obs_list[2]]
-    obs_3 = eCallistoObservatories.observatories[obs_list[3]]
-    obs_4 = eCallistoObservatories.observatories[obs_list[4]]
-    obs_5 = eCallistoObservatories.observatories[obs_list[5]]
-    obs_6 = eCallistoObservatories.observatories[obs_list[6]]
+    obs_list = observatories.observatory_list
+    download.downloadFullDay(year, month, day, observatories.observatory_list)
+    obs_0 = observatories.observatory_dict[obs_list[0]]
+    obs_1 = observatories.observatory_dict[obs_list[1]]
+    obs_2 = observatories.observatory_dict[obs_list[2]]
+    obs_3 = observatories.observatory_dict[obs_list[3]]
+    obs_4 = observatories.observatory_dict[obs_list[4]]
+    obs_5 = observatories.observatory_dict[obs_list[5]]
+    obs_6 = observatories.observatory_dict[obs_list[6]]
 
-    # eCallistoDownload.downloadFullDay(year, month, day, obs_list)
-    # corr0, time0, obs0 = eCallistoAnalysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
+    # download.downloadFullDay(year, month, day, obs_list)
+    # corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
     #                                                              _plot=True, _binned=False)
-    # eCallistoAnalysis.getPeaksFromCorrelation(corr0, time0, obs0)
+    # analysis.getPeaksFromCorrelation(corr0, time0, obs0)
     #
-    # corr0, time0, obs0 = eCallistoAnalysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
+    # corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
     #                                                              _plot=True, _no_background=True, _binned=False)
-    # eCallistoAnalysis.getPeaksFromCorrelation(corr0, time0, obs0)
-    # corr0, time0, obs0 = eCallistoAnalysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
+    # analysis.getPeaksFromCorrelation(corr0, time0, obs0)
+    # corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
     #                                                              _plot=True, _binned=True)
-    # eCallistoAnalysis.getPeaksFromCorrelation(corr0, time0, obs0)
+    # analysis.getPeaksFromCorrelation(corr0, time0, obs0)
     #
-    # corr0, time0, obs0 = eCallistoAnalysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
+    # corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
     #                                                              _plot=True, _no_background=True, _binned=True)
-    # eCallistoAnalysis.getPeaksFromCorrelation(corr0, time0, obs0)
+    # analysis.getPeaksFromCorrelation(corr0, time0, obs0)
     #
     # -------------------------------------------------------------------------------------------------
-    corr0, time0, obs0 = eCallistoAnalysis.correlateLightCurveDay(year, month, day, obs_3, obs_6, spec_range,
+    corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_3, obs_6, spec_range,
                                                                   _plot=True)
-    eCallistoAnalysis.getPeaksFromCorrelation(corr0, time0, obs0)
+    analysis.getPeaksFromCorrelation(corr0, time0, obs0)
 
-    corr0, time0, obs0 = eCallistoAnalysis.correlateLightCurveDay(year, month, day, obs_3, obs_6, spec_range,
+    corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_3, obs_6, spec_range,
                                                                   _plot=True, _no_background=True)
-    eCallistoAnalysis.getPeaksFromCorrelation(corr0, time0, obs0)
-    corr0, time0, obs0 = eCallistoAnalysis.correlateLightCurveDay(year, month, day, obs_3, obs_6, spec_range,
+    analysis.getPeaksFromCorrelation(corr0, time0, obs0)
+    corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_3, obs_6, spec_range,
                                                                   _plot=True)
-    eCallistoAnalysis.getPeaksFromCorrelation(corr0, time0, obs0)
+    analysis.getPeaksFromCorrelation(corr0, time0, obs0)
 
-    corr0, time0, obs0 = eCallistoAnalysis.correlateLightCurveDay(year, month, day, obs_3, obs_6, spec_range,
+    corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_3, obs_6, spec_range,
                                                                   _plot=True, _no_background=True)
-    eCallistoAnalysis.getPeaksFromCorrelation(corr0, time0, obs0)
+    analysis.getPeaksFromCorrelation(corr0, time0, obs0)
     """
     03:06-03:06		Australia-ASSA
     04:57-04:58		Australia-ASSA
@@ -200,19 +200,19 @@ def show_6():
     year = year_2
     month = month_2
     day = day_2
-    # eCallistoDownload.downloadFullDay(year, month, day, [eCallistoObservatories.observatory_list[0]])
-    data_day = eCallistoAnalysis.createDay(year, month, day, eCallistoObservatories.observatories[
-        eCallistoObservatories.observatory_list[3]], spec_range)
+    # download.downloadFullDay(year, month, day, [observatories.observatory_list[0]])
+    data_day = analysis.createDay(year, month, day, observatories.observatory_dict[
+        observatories.observatory_list[3]], spec_range)
     data_day = sum(data_day)
     data_day.plot()
     # data_day.createSummedLightCurve(spec_range, binned=False)
-    # eCallistoAnalysis.plot_data_time(data_day.spectrum_data.time_axis, data_day.summedLightCurve,
+    # analysis.plot_data_time(data_day.spectrum_data.time_axis, data_day.summedLightCurve,
     #                                  data_day.spectrum_data.start.timestamp())
 
     data_day.subtract_background()
 
     data_day.createSummedLightCurve(spec_range, binned=False)
-    eCallistoAnalysis.plot_data_time(data_day.spectrum_data.time_axis, data_day.summedLightCurve,
+    analysis.plot_data_time(data_day.spectrum_data.time_axis, data_day.summedLightCurve,
                                      data_day.spectrum_data.start.timestamp())
     data_day.plot()
 
@@ -221,13 +221,13 @@ def show_6_2():
     year = year_2
     month = month_2
     day = day_2
-    # eCallistoDownload.downloadFullDay(year, month, day, [eCallistoObservatories.observatory_list[0]])
-    data_day = eCallistoAnalysis.createDay(year, month, day, eCallistoObservatories.observatories[
-        eCallistoObservatories.observatory_list[0]], spec_range)
+    # download.downloadFullDay(year, month, day, [observatories.observatory_list[0]])
+    data_day = analysis.createDay(year, month, day, observatories.observatory_dict[
+        observatories.observatory_list[0]], spec_range)
     data_day = sum(data_day)
     data_day.plot()
     data_day.createSummedLightCurve(spec_range, binned=False)
-    eCallistoAnalysis.plot_data_time(data_day.spectrum_data.time_axis, data_day.summedLightCurve,
+    analysis.plot_data_time(data_day.spectrum_data.time_axis, data_day.summedLightCurve,
                                      data_day.spectrum_data.start.timestamp())
     data_day.subtract_background()
     data_day.plot()
@@ -237,17 +237,17 @@ def test1():
     year = year_2
     month = month_2
     day = day_2
-    data_day = eCallistoAnalysis.createDay(year, month, day, eCallistoObservatories.observatories[
-        eCallistoObservatories.observatory_list[6]], spec_range)
+    data_day = analysis.createDay(year, month, day, observatories.observatory_dict[
+        observatories.observatory_list[6]], spec_range)
     data_day = sum(data_day)
     data_day.createSummedLightCurve(spec_range, binned=False)
-    eCallistoAnalysis.plot_data_time(data_day.spectrum_data.time_axis, data_day.summedLightCurve,
+    analysis.plot_data_time(data_day.spectrum_data.time_axis, data_day.summedLightCurve,
                                      data_day.spectrum_data.start.timestamp())
-    eCallistoAnalysis.getPeaksFromCorrelation(data_day.summedLightCurve, data_day.spectrum_data.start.timestamp(),
-                                              [eCallistoObservatories.observatories[
-                                                   eCallistoObservatories.stat_uni_graz],
-                                               eCallistoObservatories.observatories[
-                                                   eCallistoObservatories.stat_uni_graz]], _limit=14000)
+    analysis.getPeaksFromCorrelation(data_day.summedLightCurve, data_day.spectrum_data.start.timestamp(),
+                                              [observatories.observatory_dict[
+                                                   observatories.stat_uni_graz],
+                                               observatories.observatory_dict[
+                                                   observatories.stat_uni_graz]], _limit=14000)
 
 
 def show0612_1():
@@ -255,82 +255,82 @@ def show0612_1():
     month = month_2
     day = day_2
 
-    obs_list = eCallistoObservatories.observatory_list
-    eCallistoDownload.downloadFullDay(year, month, day, eCallistoObservatories.observatory_list)
-    obs_0 = eCallistoObservatories.observatories[obs_list[0]]
-    obs_1 = eCallistoObservatories.observatories[obs_list[1]]
-    obs_2 = eCallistoObservatories.observatories[obs_list[2]]
-    obs_3 = eCallistoObservatories.observatories[obs_list[3]]
-    obs_4 = eCallistoObservatories.observatories[obs_list[4]]
-    obs_5 = eCallistoObservatories.observatories[obs_list[5]]
-    obs_6 = eCallistoObservatories.observatories[obs_list[6]]
+    obs_list = observatories.observatory_list
+    download.downloadFullDay(year, month, day, observatories.observatory_list)
+    obs_0 = observatories.observatory_dict[obs_list[0]]
+    obs_1 = observatories.observatory_dict[obs_list[1]]
+    obs_2 = observatories.observatory_dict[obs_list[2]]
+    obs_3 = observatories.observatory_dict[obs_list[3]]
+    obs_4 = observatories.observatory_dict[obs_list[4]]
+    obs_5 = observatories.observatory_dict[obs_list[5]]
+    obs_6 = observatories.observatory_dict[obs_list[6]]
 
-    # eCallistoDownload.downloadFullDay(year, month, day, obs_list)
-    # corr0, time0, obs0 = eCallistoAnalysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
+    # download.downloadFullDay(year, month, day, obs_list)
+    # corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
     #                                                              _plot=True, _binned=False)
-    # eCallistoAnalysis.getPeaksFromCorrelation(corr0, time0, obs0)
+    # analysis.getPeaksFromCorrelation(corr0, time0, obs0)
     #
-    # corr0, time0, obs0 = eCallistoAnalysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
+    # corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
     #                                                              _plot=True, _no_background=True, _binned=False)
-    # eCallistoAnalysis.getPeaksFromCorrelation(corr0, time0, obs0)
-    # corr0, time0, obs0 = eCallistoAnalysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
+    # analysis.getPeaksFromCorrelation(corr0, time0, obs0)
+    # corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
     #                                                              _plot=True, _binned=True)
-    # eCallistoAnalysis.getPeaksFromCorrelation(corr0, time0, obs0)
+    # analysis.getPeaksFromCorrelation(corr0, time0, obs0)
     #
-    # corr0, time0, obs0 = eCallistoAnalysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
+    # corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
     #                                                              _plot=True, _no_background=True, _binned=True)
-    # eCallistoAnalysis.getPeaksFromCorrelation(corr0, time0, obs0)
+    # analysis.getPeaksFromCorrelation(corr0, time0, obs0)
     #
     # -------------------------------------------------------------------------------------------------
-    corr0, time0, obs0 = eCallistoAnalysis.correlateLightCurveDay(year, month, day, obs_3, obs_6, spec_range,
+    corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_3, obs_6, spec_range,
                                                                   _plot=True)
-    eCallistoAnalysis.getPeaksFromCorrelation(corr0, time0, obs0)
+    analysis.getPeaksFromCorrelation(corr0, time0, obs0)
 
-    corr0, time0, obs0 = eCallistoAnalysis.correlateLightCurveDay(year, month, day, obs_3, obs_6, spec_range,
+    corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_3, obs_6, spec_range,
                                                                   _plot=True, _bin_time=True)
-    eCallistoAnalysis.getPeaksFromCorrelation(corr0, time0, obs0, _binned_time=True)
+    analysis.getPeaksFromCorrelation(corr0, time0, obs0, _binned_time=True)
 
-    corr0, time0, obs0 = eCallistoAnalysis.correlateLightCurveDay(year, month, day, obs_3, obs_6, spec_range,
+    corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_3, obs_6, spec_range,
                                                                   _plot=True, _bin_time=True, _bin_freq=True)
-    eCallistoAnalysis.getPeaksFromCorrelation(corr0, time0, obs0, _binned_time=True)
+    analysis.getPeaksFromCorrelation(corr0, time0, obs0, _binned_time=True)
 
 
 def testrun1701():
     year = year_2
     month = month_2
     day = day_2
-    obs_list = eCallistoObservatories.observatory_list
-    eCallistoDownload.downloadFullDay(year, month, day, eCallistoObservatories.observatory_list)
-    obs_3 = eCallistoObservatories.observatories[obs_list[3]]
-    obs_6 = eCallistoObservatories.observatories[obs_list[6]]
+    obs_list = observatories.observatory_list
+    download.downloadFullDay(year, month, day, observatories.observatory_list)
+    obs_3 = observatories.observatory_dict[obs_list[3]]
+    obs_6 = observatories.observatory_dict[obs_list[6]]
 
     for i in range(20, 360, 20):
-        c0, t0, o0 = eCallistoAnalysis.correlateLightCurveDay(year, month, day, obs_3, obs_6, spec_range, _plot=False,
+        c0, t0, o0 = analysis.correlateLightCurveDay(year, month, day, obs_3, obs_6, spec_range, _plot=False,
                                                               _no_background=False, _bin_freq=False, _bin_time=False,
                                                               _rolling_window=i,
                                                               _bin_time_width=1,
                                                               _flatten_light_curve=False,
                                                               _flatten_light_curve_window=100)
-        eCallistoAnalysis.getPeaksFromCorrelation(c0, t0, o0)
+        analysis.getPeaksFromCorrelation(c0, t0, o0)
 
 
 def testrun1701_2():
     year = year_2
     month = month_2
     day = day_2
-    obs_list = eCallistoObservatories.observatory_list
-    eCallistoDownload.downloadFullDay(year, month, day, eCallistoObservatories.observatory_list)
-    obs_3 = eCallistoObservatories.observatories[obs_list[3]]
-    obs_6 = eCallistoObservatories.observatories[obs_list[6]]
+    obs_list = observatories.observatory_list
+    download.downloadFullDay(year, month, day, observatories.observatory_list)
+    obs_3 = observatories.observatory_dict[obs_list[3]]
+    obs_6 = observatories.observatory_dict[obs_list[6]]
 
     for i in range(100, 260, 20):
-        c0, t0, o0 = eCallistoAnalysis.correlateLightCurveDay(year, month, day, obs_3, obs_6, spec_range, _plot=False,
+        c0, t0, o0 = analysis.correlateLightCurveDay(year, month, day, obs_3, obs_6, spec_range, _plot=False,
                                                               _no_background=False, _bin_freq=True, _bin_time=False,
                                                               _rolling_window=i,
                                                               _bin_time_width=1,
                                                               _flatten_light_curve=True,
                                                               _flatten_light_curve_window=200)
-        eCallistoAnalysis.getPeaksFromCorrelation(c0, t0, o0)
+        analysis.getPeaksFromCorrelation(c0, t0, o0)
 
 
 def test2401():
@@ -339,9 +339,9 @@ def test2401():
     year = year_2
     month = month_2
     day = day_2
-    obs_list = eCallistoObservatories.observatory_list
-    obs = [eCallistoObservatories.observatories[obs_list[i]] for i in range(3)]
-    day_o = [sum(eCallistoAnalysis.createDay(year, month, day, i, spec_range)) for i in obs]
+    obs_list = observatories.observatory_list
+    obs = [observatories.observatory_dict[obs_list[i]] for i in range(3)]
+    day_o = [sum(analysis.createDay(year, month, day, i, spec_range)) for i in obs]
 
     for i in day_o:
         print(i)

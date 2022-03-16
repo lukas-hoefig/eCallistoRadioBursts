@@ -10,8 +10,8 @@ from typing import List
 
 import const
 
-path_script = eCallistoConst.path_script
-path_data = eCallistoConst.path_data
+path_script = const.path_script
+path_data = const.path_data
 date_format = "%Y %m %d %H %M %S"
 file_log = ".datalog"
 
@@ -31,7 +31,7 @@ def downloadFullDay(_year: int, _month: int, _day: int, _observatories: List[str
     if type(_observatories) == str:
         _observatories = [_observatories]
 
-    download_path = eCallistoConst.pathDataDay(_year, _month, _day)
+    download_path = const.pathDataDay(_year, _month, _day)
     hour_start = minute_start = second_start = "00"
     hour_end = "23"
     minute_end = second_end = "59"
@@ -75,7 +75,7 @@ def createLog(_year: int, _month: int, _day: int, _observatories: List[str], _ov
     if not len(_observatories):
         return
 
-    path_log = eCallistoConst.pathDataDay(_year, _month, _day)
+    path_log = const.pathDataDay(_year, _month, _day)
     if _overwrite:
         datalog = open(path_log + file_log, 'w')
     else:
@@ -95,7 +95,7 @@ def dataAvailable(_year: int, _month: int, _day: int):
     :param _day:
     :return: bool, list[str] observatories for which data is available
     """
-    path_log = eCallistoConst.pathDataDay(_year, _month, _day)
+    path_log = const.pathDataDay(_year, _month, _day)
     if not os.path.exists(path_log):
         return False, None
     try:
