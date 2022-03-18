@@ -38,46 +38,47 @@ def correlateLightCurves(_data_point1: data.DataPoint, _data_point2: data.DataPo
     :param _plot: bool, if result should be plotted
     :return: list[float] rolling coefficients
     """
+
+    frequency_low = max(_data_point1.spectrum_data.freq_axis[-1], _data_point2.spectrum_data.freq_axis[-1])
+    frequency_high = min(_data_point1.spectrum_data.freq_axis[0], _data_point2.spectrum_data.freq_axis[0])
+    frequency_range = [frequency_low, frequency_high]
+    if not _data_point1.summedCurve:
+        _data_point1.createSummedCurve(frequency_range)
+        if _flatten:
+            _data_point1.flattenSummedCurve(_flatten_window)
+    if not _data_point2.summedCurve:
+        _data_point2.createSummedCurve(frequency_range)
+        if _flatten:
+            _data_point2.flattenSummedCurve(_flatten_window)
+
+    time_axis = copy.copy(_data_point1.spectrum_data.time_axis)
+    time_start_1 = _data_point1.spectrum_data.start.timestamp()
+    time_start_2 = _data_point2.spectrum_data.start.timestamp()
+
     if _bin_time:
         data_per_second = DATA_POINTS_PER_SECOND / _bin_time_width
     else:
         data_per_second = DATA_POINTS_PER_SECOND
 
-    time_axis = copy.copy(_data_point1.spectrum_data.time_axis)
-    frequency_low = max(_data_point1.spectrum_data.freq_axis[-1], _data_point2.spectrum_data.freq_axis[-1])
-    frequency_high = min(_data_point1.spectrum_data.freq_axis[0], _data_point2.spectrum_data.freq_axis[0])
-    frequency_range = [frequency_low, frequency_high]
-    if not _data_point1.summedLightCurve:
-        _data_point1.createSummedLightCurve(frequency_range)
-        if _flatten:
-            _data_point1.flattenSummedLightCurve(_flatten_window)
-    if not _data_point2.summedLightCurve:
-        _data_point2.createSummedLightCurve(frequency_range)
-        if _flatten:
-            _data_point2.flattenSummedLightCurve(_flatten_window)
-
-    time_start_1 = _data_point1.spectrum_data.start.timestamp()
-    time_start_2 = _data_point2.spectrum_data.start.timestamp()
-
-    time_start_delta = int((time_start_1 - time_start_2) * data_per_second)
     if time_start_2 > time_start_1:
         time_start = time_start_2
     else:
         time_start = time_start_1
 
+    time_start_delta = int((time_start_1 - time_start_2) * data_per_second)
     if time_start_delta > 0:
-        curve1 = _data_point1.summedLightCurve[:-time_start_delta]
-        curve2 = _data_point2.summedLightCurve[time_start_delta:]
+        curve1 = _data_point1.summedCurve[:-time_start_delta]
+        curve2 = _data_point2.summedCurve[time_start_delta:]
         time_axis = time_axis[:-time_start_delta]
 
     elif time_start_delta < 0:
-        curve1 = _data_point1.summedLightCurve[-time_start_delta:]
-        curve2 = _data_point2.summedLightCurve[:time_start_delta]
+        curve1 = _data_point1.summedCurve[-time_start_delta:]
+        curve2 = _data_point2.summedCurve[:time_start_delta]
         time_axis = time_axis[-time_start_delta:]
 
     else:
-        curve1 = _data_point1.summedLightCurve
-        curve2 = _data_point2.summedLightCurve
+        curve1 = _data_point1.summedCurve
+        curve2 = _data_point2.summedCurve
 
     if len(curve1) > len(curve2):
         time_axis = time_axis[:-abs(len(curve1) - len(curve2))]
@@ -96,64 +97,65 @@ def correlateLightCurves(_data_point1: data.DataPoint, _data_point2: data.DataPo
 
 
 # -> data.py
-def createDay(_year: int, _month: int, _day: int, _observatory: observatories.Observatory,
-              _spectral_range: List[int]):
-    """
-    Creates a list with DataPoints for a specific day for a Observatory with a specific spectral range
+#def createDay(_year: int, _month: int, _day: int, _observatory: observatories.Observatory,
+#              _spectral_range: List[int]):
+#    """
+#    Creates a list with DataPoints for a specific day for a Observatory with a specific spectral range
+#
+#    TODO: function the spectral_id = next() line
+#
+#    :param _year:
+#    :param _month:
+#    :param _day:
+#    :param _observatory:
+#    :param _spectral_range: [spectral, range]
+#    :return: List[DataPoints]
+#    """
+#    path = const.pathDataDay(_year, _month, _day)
+#    files_day = sorted(os.listdir(path))
+#    spectral_id = next(key for key, s_range in _observatory.spectral_range.items() if s_range == _spectral_range)
+#    files_observatory = []
+#    data_day = []
+#
+#    for file in files_day:
+#        if file.startswith(_observatory.name) and file.endswith(spectral_id + data.DataPoint.file_ending):
+#            files_observatory.append(file)
+#
+#    for file in files_observatory:
+#        data_day.append(data.DataPoint(file))  # try except |error -> TRIEST_20210906_234530_57.fit   TODO
+#    return data_day
+#
+#
+## -> data
+#def fitTimeFrameDataSample(_data_point1: List[data.DataPoint], _data_point2: List[data.DataPoint]):
+#    """
+#    shortens the list of DataPoints of different timeframe to a single biggest possible timeframe
+#
+#    TODO: where data is cut, and why
+#
+#    TODO: throw - no overlap
+#
+#    :param _data_point1: List[DataPoints]
+#    :param _data_point2: List[DataPoints]
+#    :return: DataPoint(timeframe), DataPoint(timeframe)
+#    """
+#    while _data_point1[0].hour + _data_point1[0].minute / 60 != _data_point2[0].hour + _data_point2[0].minute / 60:
+#        if _data_point1[0].hour + _data_point1[0].minute / 60 < _data_point2[0].hour + _data_point2[0].minute / 60:
+#            _data_point1.pop(0)
+#        else:
+#            _data_point2.pop(0)
+#    while _data_point1[-1].hour + _data_point1[-1].minute / 60 != _data_point2[-1].hour + _data_point2[-1].minute / 60:
+#        if _data_point1[-1].hour + _data_point1[-1].minute / 60 < _data_point2[-1].hour + _data_point2[-1].minute / 60:
+#            _data_point2.pop(-1)
+#        else:
+#            _data_point1.pop(-1)
+#
+#    data_merged1 = sum(_data_point1)
+#    data_merged2 = sum(_data_point2)
+#    return data_merged1, data_merged2
 
-    TODO: function the spectral_id = next() line
 
-    :param _year:
-    :param _month:
-    :param _day:
-    :param _observatory:
-    :param _spectral_range: [spectral, range]
-    :return: List[DataPoints]
-    """
-    path = const.pathDataDay(_year, _month, _day)
-    files_day = sorted(os.listdir(path))
-    spectral_id = next(key for key, s_range in _observatory.spectral_range.items() if s_range == _spectral_range)
-    files_observatory = []
-    data_day = []
-
-    for file in files_day:
-        if file.startswith(_observatory.name) and file.endswith(spectral_id + data.DataPoint.file_ending):
-            files_observatory.append(file)
-
-    for file in files_observatory:
-        data_day.append(data.DataPoint(file))  # try except |error -> TRIEST_20210906_234530_57.fit   TODO
-    return data_day
-
-
-# -> data
-def fitTimeFrameDataSample(_data_point1: List[data.DataPoint], _data_point2: List[data.DataPoint]):
-    """
-    shortens the list of DataPoints of different timeframe to a single biggest possible timeframe
-
-    TODO: where data is cut, and why
-
-    TODO: throw - no overlap
-
-    :param _data_point1: List[DataPoints]
-    :param _data_point2: List[DataPoints]
-    :return: DataPoint(timeframe), DataPoint(timeframe)
-    """
-    while _data_point1[0].hour + _data_point1[0].minute / 60 != _data_point2[0].hour + _data_point2[0].minute / 60:
-        if _data_point1[0].hour + _data_point1[0].minute / 60 < _data_point2[0].hour + _data_point2[0].minute / 60:
-            _data_point1.pop(0)
-        else:
-            _data_point2.pop(0)
-    while _data_point1[-1].hour + _data_point1[-1].minute / 60 != _data_point2[-1].hour + _data_point2[-1].minute / 60:
-        if _data_point1[-1].hour + _data_point1[-1].minute / 60 < _data_point2[-1].hour + _data_point2[-1].minute / 60:
-            _data_point2.pop(-1)
-        else:
-            _data_point1.pop(-1)
-
-    data_merged1 = sum(_data_point1)
-    data_merged2 = sum(_data_point2)
-    return data_merged1, data_merged2
-
-
+# not in class probably
 def correlateLightCurveDay(_year: int, _month: int, _day: int, _observatory1: observatories.Observatory,
                            _observatory2: observatories.Observatory, _spectral_range: List[int],
                            _no_background=False, _bin_freq=False, _bin_time=False,
@@ -182,10 +184,10 @@ def correlateLightCurveDay(_year: int, _month: int, _day: int, _observatory1: ob
     :param _spectral_range:
     :return: List, correlation
     """
-    data_obs_1 = createDay(_year, _month, _day, _observatory1, _spectral_range)
-    data_obs_2 = createDay(_year, _month, _day, _observatory2, _spectral_range)
+    data_obs_1 = data.createDay(_year, _month, _day, _observatory1, _spectral_range)
+    data_obs_2 = data.createDay(_year, _month, _day, _observatory2, _spectral_range)
 
-    data_sum_obs1, data_sum_obs2 = fitTimeFrameDataSample(data_obs_1, data_obs_2)
+    data_sum_obs1, data_sum_obs2 = data.fitTimeFrameDataSample(data_obs_1, data_obs_2)
 
     if _bin_freq:
         data_sum_obs1.binDataFreq()

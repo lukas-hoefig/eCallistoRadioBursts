@@ -5,6 +5,7 @@ import data
 import observatories
 import download
 import analysis
+import correlation
 
 
 def missingThings():
@@ -116,9 +117,9 @@ def show_3():
     """
     file = 'AUSTRIA-UNIGRAZ_20201023_113001_01.fit.gz'
     dp = data.DataPoint(file)
-    dp.createSummedLightCurve(spec_range)
-    analysis.plot_data_time(dp.spectrum_data.time_axis, dp.summedLightCurve,
-                                     dp.spectrum_data.start.timestamp())
+    dp.createSummedCurve(spec_range)
+    analysis.plot_data_time(dp.spectrum_data.time_axis, dp.summedCurve,
+                            dp.spectrum_data.start.timestamp())
 
 
 def show_4():
@@ -365,7 +366,12 @@ def test2401():
 
 
 if __name__ == '__main__':
-    test2401()
+    download.downloadFullDay(year_1, month_1, day_1, observatories.observatory_list)
+    d1 = data.createDay(year_1, month_1, day_1, observatories.observatory_dict[observatories.observatory_list[0]], spec_range)
+    d2 = data.createDay(year_1, month_1, day_1, observatories.observatory_dict[observatories.observatory_list[1]], spec_range)
+    d1, d2 = data.fitTimeFrameDataSample(d1, d2)
+    c1 = correlation.Correlation(d1, d2, False, False, False, False, 1, 1, 160)
+    c1.getPeaks()
 
 """
 

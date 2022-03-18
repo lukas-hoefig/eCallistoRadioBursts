@@ -5,7 +5,7 @@ from radiospectra.sources.callisto import CallistoSpectrogram
 import pandas as pd
 import numpy as np
 import copy
-
+import os
 from typing import List
 
 import const
@@ -31,7 +31,7 @@ class DataPoint:
     def __init__(self, file: str):
         self.spectrum_data = None
         self.number_values = None
-        self.summedLightCurve = []
+        self.summedCurve = []
         self.binned_freq = False
         self.binned_time = False
         self.background_subtracted = False
@@ -177,17 +177,17 @@ class DataPoint:
         """
         self.spectrum_data.peek()
 
-    def createSummedLightCurve(self, frequency_range: List):
+    def createSummedCurve(self, frequency_range: List):
         """
-        creates summed light-curve
+        creates summed up curve
         """
         freq_high = (np.where(self.spectrum_data.freq_axis == max(
             self.spectrum_data.freq_axis[self.spectrum_data.freq_axis <= frequency_range[1]])))[0][0]
         freq_low = (np.where(self.spectrum_data.freq_axis == min(
             self.spectrum_data.freq_axis[self.spectrum_data.freq_axis >= frequency_range[0]])))[0][0]
 
-        self.summedLightCurve = [np.nansum(self.spectrum_data.data.transpose()[time][freq_high:freq_low + 1]) for time
-                                 in range(self.number_values)]
+        self.summedCurve = [np.nansum(self.spectrum_data.data.transpose()[time][freq_high:freq_low + 1]) for time
+                            in range(self.number_values)]
 
     def subtract_background(self):
         if self.background_subtracted:
@@ -195,7 +195,64 @@ class DataPoint:
         self.spectrum_data = self.spectrum_data.subtract_bg()
         self.background_subtracted = True
 
-    def flattenSummedLightCurve(self, rolling_window=CURVE_FLATTEN_WINDOW):
-        median = np.array(pd.Series(self.summedLightCurve).rolling(rolling_window).median())
-        arr = np.array(self.summedLightCurve)
-        self.summedLightCurve = arr - median
+    def flattenSummedCurve(self, rolling_window=CURVE_FLATTEN_WINDOW):
+        median = np.array(pd.Series(self.summedCurve).rolling(rolling_window).median())
+        arr = np.array(self.summedCurve)
+        self.summedCurve = arr - median
+
+
+def createDay(_year: int, _month: int, _day: int, _observatory: observatories.Observatory,
+              _spectral_range: List[int]):
+    """
+    Creates a list with DataPoints for a specific day for a Observatory with a specific spectral range
+
+    TODO: function the spectral_id = next() line
+
+    :param _year:
+    :param _month:
+    :param _day:
+    :param _observatory:
+    :param _spectral_range: [spectral, range]
+    :return: List[DataPoints]
+    """
+    path = const.pathDataDay(_year, _month, _day)
+    files_day = sorted(os.listdir(path))
+    spectral_id = next(key for key, s_range in _observatory.spectral_range.items() if s_range == _spectral_range)
+    files_observatory = []
+    data_day = []
+
+    for file in files_day:
+        if file.startswith(_observatory.name) and file.endswith(spectral_id + DataPoint.file_ending):
+            files_observatory.append(file)
+
+    for file in files_observatory:
+        data_day.append(DataPoint(file))  # try except |error -> TRIEST_20210906_234530_57.fit   TODO
+    return data_day
+
+
+def fitTimeFrameDataSample(_data_point1: List[DataPoint], _data_point2: List[DataPoint]):
+    """
+    shortens the list of DataPoints of different timeframe to a single biggest possible timeframe
+
+    TODO: where data is cut, and why
+
+    TODO: throw - no overlap
+
+    :param _data_point1: List[DataPoints]
+    :param _data_point2: List[DataPoints]
+    :return: DataPoint(timeframe), DataPoint(timeframe)
+    """
+    while _data_point1[0].hour + _data_point1[0].minute / 60 != _data_point2[0].hour + _data_point2[0].minute / 60:
+        if _data_point1[0].hour + _data_point1[0].minute / 60 < _data_point2[0].hour + _data_point2[0].minute / 60:
+            _data_point1.pop(0)
+        else:
+            _data_point2.pop(0)
+    while _data_point1[-1].hour + _data_point1[-1].minute / 60 != _data_point2[-1].hour + _data_point2[-1].minute / 60:
+        if _data_point1[-1].hour + _data_point1[-1].minute / 60 < _data_point2[-1].hour + _data_point2[-1].minute / 60:
+            _data_point2.pop(-1)
+        else:
+            _data_point1.pop(-1)
+
+    data_merged1 = sum(_data_point1)
+    data_merged2 = sum(_data_point2)
+    return data_merged1, data_merged2
