@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 
+import analysis
 import data
 import observatories
 import const
@@ -30,6 +31,10 @@ BIN_FACTOR = const.BIN_FACTOR
 #     def __init__(self):
 #         super().__init__()
 #         raise NotImplementedError
+
+class Comparison:
+    def __init__(self, events):
+        self.events = [analysis.Event(event) for event in events]
 
 
 class Correlation:
@@ -62,12 +67,6 @@ class Correlation:
         self.setupTimeAxis()
         self.correlateCurves()
 
-    def __str__(self):
-        return  # TODO
-
-    def __repr__(self):
-        return  # TODO
-
     def correlateCurves(self):
         if self.time_start_delta > 0:
             curve1 = self.data_point_1.summedCurve[:-self.time_start_delta]
@@ -94,26 +93,27 @@ class Correlation:
 
     def getPeaks(self, _limit=LIMIT):
         within_burst = False
+        peaks = []
         if np.nanmax(self.data_curve) < _limit:
             print("No Bursts {}  {} \n".format(self.data_point_1.observatory.name,
                                                self.data_point_2.observatory.name))
             return
         for point in range(len(self.data_curve)):
             if self.data_curve[point] > _limit and not within_burst:
-                self.peaks.append([point, self.data_curve[point]])
+                peaks.append([point, self.data_curve[point]])
                 within_burst = True
-            if self.data_curve[point] > _limit and within_burst and self.data_curve[point] > self.peaks[-1][1]:
-                self.peaks[-1][1] = self.data_curve[point]
+
+            # peak or starting time ?
+            if self.data_curve[point] > _limit and within_burst and self.data_curve[point] > peaks[-1][1]:
+                peaks[-1][1] = self.data_curve[point]
             if within_burst and self.data_curve[point] < _limit:
                 within_burst = False
 
-        if self.peaks[0]:
-            for i in range(len(self.peaks)):
-                self.peaks[i][0] = datetime.fromtimestamp(self.peaks[i][0] / self.data_per_second + self.time_start).strftime(
+        if peaks[0]:
+            for i in peaks:
+                i[0] = datetime.fromtimestamp(i[0] / self.data_per_second + self.time_start).strftime(
                     "%H:%M:%S")
-
-            print("Burst(s) detected {}  {}  \n".format(self.data_point_1.observatory.name,
-                                                        self.data_point_2.observatory.name), self.peaks)
+                self.peaks.append(analysis.Event(i[0], probability=i[1]))
 
     def fileName(self):
         return "{}_{}_{}_{}_{}_{}{}{}{}{}.png"\
@@ -124,7 +124,33 @@ class Correlation:
                     ["", "_flatten_{}".format(self.flatten_window)][self.flatten])
 
     def printResult(self):
-        raise NotImplementedError
+        if not self.peaks:
+            print("No bursts detected")
+            return
+        print("Burst(s) detected at: {} & {}".format(self.data_point_1.observatory.name,
+                                                     self.data_point_2.observatory.name))
+        for i in self.peaks:
+            print(i)
+
+    def compareToTest(self, test: Comparison):
+        peaks = self.peaks
+        events = test.events
+
+        for event in test.events:
+            for peak in self.peaks:
+                if event.compare(peak):
+                    print("peak {} found".format(event))
+                    peaks.remove(peak)
+                    events.remove(event)
+                    break
+            print("peak {} not found".format(event))
+
+        if peaks:
+            print("peaks mistakenly found: ", peaks)
+        if events:
+            print("Events not found: ", events)
+        # check if all official peaks found -> over all observatories
+        # check that nothing else is found
 
     def setupFreqRange(self):
         frequency_low = max(self.data_point_1.spectrum_data.freq_axis[-1],

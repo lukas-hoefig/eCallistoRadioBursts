@@ -14,6 +14,7 @@ import data
 import observatories
 import const
 
+TIME_TOLERANCE = 60
 LIMIT = 0.70
 DATA_POINTS_PER_SECOND = const.DATA_POINTS_PER_SECOND
 BIN_FACTOR = const.BIN_FACTOR
@@ -295,6 +296,39 @@ def plot_data_time(_time: List[float], _data: List[float], _time_start: float,
     else:
         plt.savefig(const.path_plots + file_name)
     plt.close()
+
+
+class Time:
+    def __init__(self, time):
+        self.h, self.m, self.s = time.rsplit(':')
+        self.float = int(self.h) * 3600 + int(self.m) * 60 + int(self.s)
+
+    def __str__(self):
+        return "{}:{}:{}".format(self.h, self.m, self.s)
+
+    def __repr__(self):
+        return self.__str__()
+
+
+class Event:
+    def __init__(self, time, probability=1):
+        self.time = Time(time)
+        self.probability = probability
+
+    def __str__(self):
+        return str([self.time, self.probability])
+
+    def __repr__(self):
+        return self.__str__()
+
+    def compare(self, other):
+        return (self.time.float - other.time.float) < TIME_TOLERANCE
+
+    def inList(self, _list):
+        for i in _list:
+            if self.compare(i):
+                return True
+        return False
 
 
 """

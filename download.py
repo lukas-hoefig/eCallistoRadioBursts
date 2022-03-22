@@ -50,12 +50,13 @@ def downloadFullDay(_year: int, _month: int, _day: int, _observatories: List[str
     if not os.path.exists(download_path):
         os.makedirs(download_path)
 
-    url_list = cal.query(time_start, time_end, _observatories)
-    cal.download(url_list, download_path)
-    if data_available:
-        createLog(_year, _month, _day, _observatories, _overwrite=False)
-    else:
-        createLog(_year, _month, _day, _observatories)
+    if _observatories:
+        url_list = cal.query(time_start, time_end, _observatories)
+        cal.download(url_list, download_path)
+        if data_available:
+            createLog(_year, _month, _day, _observatories, _overwrite=False)
+        else:
+            createLog(_year, _month, _day, _observatories)
 
 
 def createLog(_year: int, _month: int, _day: int, _observatories: List[str], _overwrite=True):
