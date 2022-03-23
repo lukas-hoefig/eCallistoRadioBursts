@@ -101,8 +101,8 @@ def show_2():
     data_day = sum(data_day)
     data_day.plot()
     data_day.createSummedLightCurve(spec_range)
-    analysis.plot_data_time(data_day.spectrum_data.time_axis, data_day.summedLightCurve,
-                            data_day.spectrum_data.start.timestamp())
+    analysis.plotDataTime(data_day.spectrum_data.time_axis, data_day.summedLightCurve,
+                          data_day.spectrum_data.start.timestamp())
     data_day.subtract_background()
     data_day.plot()
 
@@ -120,8 +120,8 @@ def show_3():
     file = 'AUSTRIA-UNIGRAZ_20201023_113001_01.fit.gz'
     dp = data.DataPoint(file)
     dp.createSummedCurve(spec_range)
-    analysis.plot_data_time(dp.spectrum_data.time_axis, dp.summedCurve,
-                            dp.spectrum_data.start.timestamp())
+    analysis.plotDataTime(dp.spectrum_data.time_axis, dp.summedCurve,
+                          dp.spectrum_data.start.timestamp())
 
 
 def show_4():
@@ -215,8 +215,8 @@ def show_6():
     data_day.subtract_background()
 
     data_day.createSummedLightCurve(spec_range, binned=False)
-    analysis.plot_data_time(data_day.spectrum_data.time_axis, data_day.summedLightCurve,
-                            data_day.spectrum_data.start.timestamp())
+    analysis.plotDataTime(data_day.spectrum_data.time_axis, data_day.summedLightCurve,
+                          data_day.spectrum_data.start.timestamp())
     data_day.plot()
 
 
@@ -230,8 +230,8 @@ def show_6_2():
     data_day = sum(data_day)
     data_day.plot()
     data_day.createSummedLightCurve(spec_range, binned=False)
-    analysis.plot_data_time(data_day.spectrum_data.time_axis, data_day.summedLightCurve,
-                            data_day.spectrum_data.start.timestamp())
+    analysis.plotDataTime(data_day.spectrum_data.time_axis, data_day.summedLightCurve,
+                          data_day.spectrum_data.start.timestamp())
     data_day.subtract_background()
     data_day.plot()
 
@@ -244,8 +244,8 @@ def test1():
         observatories.observatory_list[6]], spec_range)
     data_day = sum(data_day)
     data_day.createSummedLightCurve(spec_range, binned=False)
-    analysis.plot_data_time(data_day.spectrum_data.time_axis, data_day.summedLightCurve,
-                            data_day.spectrum_data.start.timestamp())
+    analysis.plotDataTime(data_day.spectrum_data.time_axis, data_day.summedLightCurve,
+                          data_day.spectrum_data.start.timestamp())
     analysis.getPeaksFromCorrelation(data_day.summedLightCurve, data_day.spectrum_data.start.timestamp(),
                                      [observatories.observatory_dict[
                                           observatories.stat_uni_graz],
@@ -391,6 +391,10 @@ if __name__ == '__main__':
     #c2.printResult()
 
     c1.compareToTest(test_2017_04_18)
+    zz = data.createFromTime(year_1, month_1, day_1, '09:43:51', obs[0], spec_range)
+    zz.plot()
+    zz.createSummedCurve(spec_range)
+    zz.plotSummedCurve()
 
 
 def a():
@@ -438,6 +442,7 @@ def a():
         c2.printResult()
 
         c1.compareToTest(test_2017_04_18)
+
 """
 
 

@@ -4,10 +4,13 @@
 from radiospectra.sources.callisto import CallistoSpectrogram
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 import copy
+from datetime import datetime
 import os
 from typing import List
 
+# import analysis
 import const
 import observatories
 import download
@@ -34,6 +37,7 @@ class DataPoint:
         self.summedCurve = []
         self.binned_freq = False
         self.binned_time = False
+        self.binned_time_width = 1
         self.background_subtracted = False
 
         reader = file.rsplit('/')[-1]
@@ -169,6 +173,7 @@ class DataPoint:
 
         self.spectrum_data.time_axis = time_range
         self.binned_time = True
+        self.binned_time_width = width
         self.number_values = len(self.spectrum_data.time_axis)
 
     def plot(self):
@@ -200,6 +205,10 @@ class DataPoint:
         arr = np.array(self.summedCurve)
         self.summedCurve = arr - median
 
+    def plotSummedCurve(self):
+        plotCurve(self.spectrum_data.time_axis, self.summedCurve, self.spectrum_data.start.timestamp(),
+                  self.binned_time, self.binned_time_width)
+
 
 def createDay(_year: int, _month: int, _day: int, _observatory: observatories.Observatory,
               _spectral_range: List[int]):
@@ -217,7 +226,7 @@ def createDay(_year: int, _month: int, _day: int, _observatory: observatories.Ob
     """
     path = const.pathDataDay(_year, _month, _day)
     files_day = sorted(os.listdir(path))
-    spectral_id = next(key for key, s_range in _observatory.spectral_range.items() if s_range == _spectral_range)
+    spectral_id = observatories.specID(_observatory, _spectral_range)
     files_observatory = []
     data_day = []
 
@@ -228,6 +237,29 @@ def createDay(_year: int, _month: int, _day: int, _observatory: observatories.Ob
     for file in files_observatory:
         data_day.append(DataPoint(file))  # try except |error -> TRIEST_20210906_234530_57.fit   TODO
     return data_day
+
+
+def createFromTime(_year, _month, _day, _time, _observatory, _spectral_range):
+    path = const.pathDataDay(_year, _month, _day)
+    files = sorted(os.listdir(path))
+    spectral_id = observatories.specID(_observatory, _spectral_range)
+    time_target = int(_time[:2])*3600 + int(_time[3:5])*60 + int(_time[6:])
+    files_filtered = []
+
+    for file in files:
+        if file.startswith(_observatory.name) and file.endswith(spectral_id + DataPoint.file_ending):
+            files_filtered.append(file)
+
+    file_ = files_filtered[0]
+    for file in files_filtered:
+        time_read = file.rsplit('_')[2]
+        time_file = int(time_read[:2])*3600 + int(time_read[2:4])*60 + int(time_read[4:])
+        time_diff = time_target - time_file
+        if time_diff < 0:
+            break
+        file_ = file
+
+    return DataPoint(file_)
 
 
 def fitTimeFrameDataSample(_data_point1: List[DataPoint], _data_point2: List[DataPoint]):
@@ -256,3 +288,30 @@ def fitTimeFrameDataSample(_data_point1: List[DataPoint], _data_point2: List[Dat
     data_merged1 = sum(_data_point1)
     data_merged2 = sum(_data_point2)
     return data_merged1, data_merged2
+
+
+def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, _plot=True, file_name=None):
+    if _bin_time:
+        data_per_second = DATA_POINTS_PER_SECOND / _bin_time_width
+    else:
+        data_per_second = DATA_POINTS_PER_SECOND
+    time_axis_plot = []
+    for i in range(len(_time)):
+        time_axis_plot.append(
+            datetime.fromtimestamp(_time_start + i / data_per_second).strftime("%D %H:%M:%S.%f")[:-3])
+    time_axis_plot = pd.to_datetime(time_axis_plot)
+    dataframe = pd.DataFrame()
+    dataframe['data'] = _data
+
+    dataframe = dataframe.set_index(time_axis_plot)
+    plt.figure(figsize=(16, 9))
+    fig, ax = plt.subplots()
+    fig.subplots_adjust(bottom=0.3)
+    plt.xticks(rotation=90)
+    plt.plot(dataframe)
+
+    if _plot:
+        plt.show()
+    else:
+        plt.savefig(const.path_plots + file_name)
+    plt.close()

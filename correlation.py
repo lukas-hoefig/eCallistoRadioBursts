@@ -11,7 +11,8 @@ import data
 import observatories
 import const
 
-LIMIT = 0.70
+CORRELATION_MIN = 0.70
+CORRELATION_PEAK_END = CORRELATION_MIN / 7
 DATA_POINTS_PER_SECOND = const.DATA_POINTS_PER_SECOND
 BIN_FACTOR = const.BIN_FACTOR
 
@@ -91,7 +92,8 @@ class Correlation:
         self.data_curve = pd.Series(curve1).rolling(self.r_window).corr(pd.Series(curve2))
         self.data_curve.replace([np.inf, -np.inf], np.nan).tolist()
 
-    def getPeaks(self, _limit=LIMIT):
+    def getPeaks(self, _limit=CORRELATION_MIN):
+        # TODO set min delta t for times
         within_burst = False
         peaks = []
         if np.nanmax(self.data_curve) < _limit:
@@ -106,7 +108,7 @@ class Correlation:
             # peak or starting time ?
             if self.data_curve[point] > _limit and within_burst and self.data_curve[point] > peaks[-1][1]:
                 peaks[-1][1] = self.data_curve[point]
-            if within_burst and self.data_curve[point] < _limit:
+            if within_burst and self.data_curve[point] < CORRELATION_PEAK_END:
                 within_burst = False
 
         if peaks[0]:
@@ -133,22 +135,21 @@ class Correlation:
             print(i)
 
     def compareToTest(self, test: Comparison):
-        peaks = self.peaks
-        events = test.events
-
+        peaks  = copy.copy(self.peaks)
+        events = copy.copy(test.events)
         for event in test.events:
-            for peak in self.peaks:
-                if event.compare(peak):
-                    print("peak {} found".format(event))
-                    peaks.remove(peak)
-                    events.remove(event)
-                    break
-            print("peak {} not found".format(event))
+            if event.inList(self.peaks):
+                events.remove(event)
+        for peak in self.peaks:
+            if peak.inList(test.events):
+                peaks.remove(peak)
 
         if peaks:
-            print("peaks mistakenly found: ", peaks)
+            print("peaks mistakenly found: ")
+            for p in peaks:
+                print(p.time)
         if events:
-            print("Events not found: ", events)
+            print("Events not found: \n", events)
         # check if all official peaks found -> over all observatories
         # check that nothing else is found
 

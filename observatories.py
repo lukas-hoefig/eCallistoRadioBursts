@@ -30,6 +30,10 @@ class Observatory:
         return self.spectral_range[identification]
 
 
+def specID(_observatory, _spectral_range):
+    return next(key for key, s_range in _observatory.spectral_range.items() if s_range == _spectral_range)
+
+
 stat_uni_graz = "AUSTRIA-UNIGRAZ"
 spec_range_uni_graz = {"01": [45, 81]}
 uni_graz = Observatory(stat_uni_graz, spec_range_uni_graz)

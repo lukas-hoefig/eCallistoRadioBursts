@@ -4,7 +4,6 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import os
 import copy
 from datetime import datetime
 
@@ -89,9 +88,9 @@ def correlateLightCurves(_data_point1: data.DataPoint, _data_point2: data.DataPo
 
     correlation = pd.Series(curve1).rolling(_r_window).corr(pd.Series(curve2))
 
-    plot_data_time(time_axis, correlation, time_start, _data_point1.year, _data_point1.month, _data_point1.day,
-                   _data_point1.observatory.name, _data_point2.observatory.name, _no_background, _bin_freq,
-                   _bin_time, _flatten, _bin_time_width, _flatten_window, _r_window, _plot=_plot)
+    plotDataTime(time_axis, correlation, time_start, _data_point1.year, _data_point1.month, _data_point1.day,
+                 _data_point1.observatory.name, _data_point2.observatory.name, _no_background, _bin_freq,
+                 _bin_time, _flatten, _bin_time_width, _flatten_window, _r_window, _plot=_plot)
 
     return correlation.replace([np.inf, -np.inf], np.nan).tolist(), time_start, [_data_point1.observatory,
                                                                                  _data_point2.observatory]
@@ -242,10 +241,10 @@ def getPeaksFromCorrelation(correlation: List[float], starting_time: float,
         print("Burst(s) detected {}  {}  \n".format(observatories[0].name, observatories[1].name), bursts)
 
 
-def plot_data_time(_time: List[float], _data: List[float], _time_start: float,
-                   _year: int, _month: int, _day: int, _obs1: str, _obs2: str, _nobg: bool, _bin_freq: bool,
-                   _bin_time: bool, _flatten: bool, _bin_time_width: int, _flatten_window: int, _rolling_window: int,
-                   _plot=True):
+def plotDataTime(_time: List[float], _data: List[float], _time_start: float,
+                 _year: int, _month: int, _day: int, _obs1: str, _obs2: str, _nobg: bool, _bin_freq: bool,
+                 _bin_time: bool, _flatten: bool, _bin_time_width: int, _flatten_window: int, _rolling_window: int,
+                 _plot=True):
     """
 
     :param _time:
@@ -266,6 +265,8 @@ def plot_data_time(_time: List[float], _data: List[float], _time_start: float,
     :param _plot:
     :return:
     """
+
+    # call plotCurve()
     if _bin_time:
         data_per_second = DATA_POINTS_PER_SECOND / _bin_time_width
     else:
@@ -320,6 +321,9 @@ class Event:
 
     def __repr__(self):
         return self.__str__()
+
+    def __eq__(self, other):
+        return self.time == other.time
 
     def compare(self, other):
         return (self.time.float - other.time.float) < TIME_TOLERANCE
