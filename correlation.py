@@ -135,7 +135,7 @@ class Correlation:
             print(i)
 
     def compareToTest(self, test: Comparison):
-        peaks  = copy.copy(self.peaks)
+        peaks = copy.copy(self.peaks)
         events = copy.copy(test.events)
         for event in test.events:
             if event.inList(self.peaks):
@@ -148,8 +148,12 @@ class Correlation:
             print("peaks mistakenly found: ")
             for p in peaks:
                 print(p.time)
+        else:
+            print("No false peaks found")
         if events:
             print("Events not found: \n", events)
+        else:
+            print("All events found")
         # check if all official peaks found -> over all observatories
         # check that nothing else is found
 

@@ -367,81 +367,50 @@ def test2401():
         plt.show()
 
 
-if __name__ == '__main__':
-    days = [[18, 10, 11, 2, 4, 6, 7, 8, 9, 27, 8, 27, 20, 21, 22, 27, 30, 24, 26],
-            [4, 6, 7, 9, 9, 9, 9, 9, 9, 9, 3, 10, 11, 11, 11, 12, 12, 4, 4],
-            [2017, 2017, 2017, 2017, 2017, 2017, 2017, 2017, 2017, 2017, 2017, 2020, 2020, 2020, 2020, 2020, 2020, 2021,
-             2021]]
+def testBacBursts():
+    reference = [[2017, 4, 18, correlation.Comparison(["09:36:00"])],
+                 [2017, 6, 10, correlation.Comparison(["11:34:00"])],
+                 [2017, 7, 11, correlation.Comparison(["13:20:00"])],
+                 [2017, 9, 2, correlation.Comparison(["12:28:00"])],
+                 [2017, 9, 4, correlation.Comparison(["08:33:00"])],
+                 [2017, 9, 6, correlation.Comparison(["09:18:00", "15:25:00"])],
+                 [2017, 9, 7, correlation.Comparison(["09:53:00", "10:15:00", "12:55:00"])],
+                 [2017, 9, 8, correlation.Comparison(["07:06:00", "09:20:00", "10:47:00", "10:54:00",
+                                                      "13:22:00", "14:01:00", "15:37:00"])],
+                 [2017, 9, 9, correlation.Comparison(["11:17:00", "11:44:00"])],
+                 [2017, 9, 27, correlation.Comparison(["12:10:00"])],
+                 [2017, 3, 8, correlation.Comparison(["15:33:00", "15:36:00"])],
+                 [2020, 10, 27, correlation.Comparison(["08:52:00", "10:58:00", "11:43:00"])],
+                 [2020, 11, 20, correlation.Comparison(["13:28:00"])],
+                 [2020, 11, 21, correlation.Comparison(["10:46:00", "11:32:00"])],
+                 [2020, 11, 22, correlation.Comparison(["11:00:00", "11:08:00", "14:17:00"])],
+                 [2020, 12, 27, correlation.Comparison(["11:37:00", "12:35:00"])],
+                 [2020, 12, 30, correlation.Comparison(["14:26:00"])],
+                 [2021, 4, 24, correlation.Comparison(["10:23:00"])],
+                 [2021, 4, 26, correlation.Comparison(["13:56:00"])]]
     obs = [observatories.uni_graz, observatories.oe3flb, observatories.swiss_landschlacht, observatories.austria]
     obs_dl = [i.name for i in obs]
-    test_2017_04_18 = correlation.Comparison(["09:36:00"])
 
-    download.downloadFullDay(days[2][0], days[1][0], days[0][0], obs_dl)
-    d1 = data.createDay(days[2][0], days[1][0], days[0][0], obs[0], spec_range)
-    d2 = data.createDay(days[2][0], days[1][0], days[0][0], obs[3], spec_range)
-    #d3 = data.createDay(days[2][0], days[1][0], days[0][0], obs[2], spec_range)
-    d11, d12 = data.fitTimeFrameDataSample(d1, d2)
-    #d21, d22 = data.fitTimeFrameDataSample(d1, d3)
-    c1 = correlation.Correlation(d11, d12, False, False, False, False, 1, 1, 160)
-    #c2 = correlation.Correlation(d21, d22, False, False, False, False, 1, 1, 160)
-
-    c1.getPeaks()
-    c1.printResult()
-    #c2.getPeaks()
-    #c2.printResult()
-
-    c1.compareToTest(test_2017_04_18)
-    zz = data.createFromTime(year_1, month_1, day_1, '09:43:51', obs[0], spec_range)
-    zz.plot()
-    zz.createSummedCurve(spec_range)
-    zz.plotSummedCurve()
+    for i in reference:
+        year = i[0]
+        month = i[1]
+        day = i[2]
+        print("------------------------\n"
+              "New Test: {}.{}.{}\n starting download\n".format(day, month, year))
+        download.downloadFullDay(i[0], i[1], i[2], obs_dl)
+        obs_ = download.observatoriesAvailable(year, month, day)[1]
+        print("Observatories: {} & {}".format(obs_[0], obs_[1]))
+        dp_1 = data.createDay(year, month, day, obs_[0], spec_range)
+        dp_2 = data.createDay(year, month, day, obs_[1], spec_range)
+        dp_1_clean, dp_2_clean = data.fitTimeFrameDataSample(dp_1, dp_2)
+        corr = correlation.Correlation(dp_1_clean, dp_2_clean, False, False, False, False, 1, 1, 160)
+        corr.getPeaks()
+        corr.compareToTest(i[3])
 
 
-def a():
-    days = [[18, 10, 11, 2, 4, 6, 7, 8, 9, 27, 8, 27, 20, 21, 22, 27, 30, 24, 26],
-            [4, 6, 7, 9, 9, 9, 9, 9, 9, 9, 3, 10, 11, 11, 11, 12, 12, 4, 4],
-            [2017, 2017, 2017, 2017, 2017, 2017, 2017, 2017, 2017, 2017, 2017, 2020, 2020, 2020, 2020, 2020, 2020, 2021,
-             2021]]
-    obs = [observatories.uni_graz, observatories.oe3flb, observatories.swiss_landschlacht]
-    obs_dl = [i.name for i in obs]
-    test_2017_04_18 = correlation.Comparison(["09:36:00"])
-    test_2017_06_01 = correlation.Comparison(["11:34:00"])
-    test_2017_07_11 = correlation.Comparison(["13:20:00"])
-    test_2017_09_02 = correlation.Comparison(["12:28:00"])
-    test_2017_09_04 = correlation.Comparison(["08:33:00"])
-    test_2017_09_06 = correlation.Comparison(["09:18:00", "15:25:00"])
-    test_2017_09_07 = correlation.Comparison(["09:53:00", "10:15:00", "12:55:00"])
-    test_2017_09_08 = correlation.Comparison(
-        ["07:06:00", "09:20:00", "10:47:00", "10:54:00", "13:22:00", "14:01:00", "15:37:00"])
-    test_2017_09_09 = correlation.Comparison(["11:17:00", "11:44:00"])
-    test_2017_09_27 = correlation.Comparison(["12:10:00"])
-    test_2017_03_08 = correlation.Comparison(["15:33:00", "15:36:00"])
-    test_2020_10_27 = correlation.Comparison(["08:52:00", "10:58:00", "11:43:00"])
-    test_2020_11_20 = correlation.Comparison(["13:28:00"])
-    test_2020_11_21 = correlation.Comparison(["10:46:00", "11:32:00"])
-    test_2020_11_22 = correlation.Comparison(["11:00:00", "11:08:00", "14:17:00"])
-    test_2020_12_27 = correlation.Comparison(["11:37:00", "12:35:00"])
-    test_2020_12_30 = correlation.Comparison(["14:26:00"])
-    test_2021_04_24 = correlation.Comparison(["10:23:00"])
-    test_2021_04_26 = correlation.Comparison(["13:56:00"])
+if __name__ == '__main__':
+    testBacBursts()
 
-    # ach fuck
-    for i in range(len(days[0])):
-        download.downloadFullDay(days[2][i], days[1][i], days[0][i], obs_dl)
-        d1 = data.createDay(year_1, month_1, day_1, obs[0], spec_range)
-        d2 = data.createDay(year_1, month_1, day_1, obs[1], spec_range)
-        d3 = data.createDay(year_1, month_1, day_1, obs[2], spec_range)
-        d11, d12 = data.fitTimeFrameDataSample(d1, d2)
-        d21, d22 = data.fitTimeFrameDataSample(d1, d3)
-        c1 = correlation.Correlation(d11, d12, False, False, False, False, 1, 1, 160)
-        c2 = correlation.Correlation(d21, d22, False, False, False, False, 1, 1, 160)
-
-        c1.getPeaks()
-        c1.printResult()
-        c2.getPeaks()
-        c2.printResult()
-
-        c1.compareToTest(test_2017_04_18)
 
 """
 

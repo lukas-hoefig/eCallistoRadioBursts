@@ -305,8 +305,6 @@ def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, _plot=True,
 
     dataframe = dataframe.set_index(time_axis_plot)
     plt.figure(figsize=(16, 9))
-    fig, ax = plt.subplots()
-    fig.subplots_adjust(bottom=0.3)
     plt.xticks(rotation=90)
     plt.plot(dataframe)
 

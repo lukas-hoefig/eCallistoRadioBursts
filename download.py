@@ -22,7 +22,7 @@ def downloadFullDay(_year: int, _month: int, _day: int, _observatories: List[str
     files will be located in
     <script>/eCallistoData/<year>/<month>/<day>/
 
-    :param _observatories: list[str] name-codes of observatories
+    :param _observatories: [str] or [list[str]] name-codes of observatories
     :param _year:
     :param _month:
     :param _day:
@@ -46,7 +46,10 @@ def downloadFullDay(_year: int, _month: int, _day: int, _observatories: List[str
             try:
                 _observatories.remove(observatory)
             except ValueError:
-                pass
+                try:
+                    _observatories.remove(observatory + '-')
+                except ValueError:
+                    pass
     if not os.path.exists(download_path):
         os.makedirs(download_path)
 
@@ -81,8 +84,12 @@ def createLog(_year: int, _month: int, _day: int, _observatories: List[str], _ov
         datalog = open(path_log + file_log, 'w')
     else:
         datalog = open(path_log + file_log, "a")
+    files = os.listdir(path_log)
     for observatory in _observatories:
-        datalog.write(observatory + " ")
+        if any(file.startswith(observatory) for file in files):
+            datalog.write(observatory + " ")
+        else:
+            datalog.write(observatory + "- ")
     datalog.close()
 
 
@@ -103,7 +110,18 @@ def dataAvailable(_year: int, _month: int, _day: int):
         datalog = open(path_log + file_log, "r")
         observatories = datalog.read().split(" ")
         datalog.close()
+        observatories.pop(-1)
         return True, observatories
 
     except FileNotFoundError:
         return False, None
+
+
+def observatoriesAvailable(_year, _month, _day):
+    data_available, observatories = dataAvailable(_year, _month, _day)
+    observatories_available = []
+    for i in observatories:
+        if not i.endswith('-'):
+            observatories_available.append(i)
+
+    return data_available, observatories_available
