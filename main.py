@@ -379,7 +379,7 @@ def testBacBursts():
                                                       "13:22:00", "14:01:00", "15:37:00"])],
                  [2017, 9, 9, correlation.Comparison(["11:17:00", "11:44:00"])],
                  [2017, 9, 27, correlation.Comparison(["12:10:00"])],
-                 [2017, 3, 8, correlation.Comparison(["15:33:00", "15:36:00"])],
+                 [2020, 3, 8, correlation.Comparison(["15:33:00", "15:36:00"])],
                  [2020, 10, 27, correlation.Comparison(["08:52:00", "10:58:00", "11:43:00"])],
                  [2020, 11, 20, correlation.Comparison(["13:28:00"])],
                  [2020, 11, 21, correlation.Comparison(["10:46:00", "11:32:00"])],
@@ -399,6 +399,8 @@ def testBacBursts():
               "New Test: {}.{}.{}\n starting download\n".format(day, month, year))
         download.downloadFullDay(i[0], i[1], i[2], obs_dl)
         obs_ = download.observatoriesAvailable(year, month, day)[1]
+        
+        
         print("Observatories: {} & {}".format(obs_[0], obs_[1]))
         dp_1 = data.createDay(year, month, day, obs_[0], spec_range)
         dp_2 = data.createDay(year, month, day, obs_[1], spec_range)
