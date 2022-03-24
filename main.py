@@ -396,11 +396,9 @@ def testBacBursts():
         month = i[1]
         day = i[2]
         print("------------------------\n"
-              "New Test: {}.{}.{}\n starting download\n".format(day, month, year))
+              "New Test: {}.{}.{}\n".format(day, month, year))
         download.downloadFullDay(i[0], i[1], i[2], obs_dl)
         obs_ = download.observatoriesAvailable(year, month, day)[1]
-        
-        
         print("Observatories: {} & {}".format(obs_[0], obs_[1]))
         dp_1 = data.createDay(year, month, day, obs_[0], spec_range)
         dp_2 = data.createDay(year, month, day, obs_[1], spec_range)
@@ -410,9 +408,20 @@ def testBacBursts():
         corr.compareToTest(i[3])
 
 
-if __name__ == '__main__':
-    testBacBursts()
+def bacBurstFailed():
+    eventlist = [[2017, 6, 10, '11:34:00']]
+    obs = observatories.uni_graz
 
+    for i in eventlist:
+        download.downloadFullDay(i[0], i[1], i[2], obs.name)
+        dp = data.createFromTime(i[0], i[1], i[2], i[3], obs, spec_range)
+        dp.createSummedCurve(spec_range)
+        dp.plotSummedCurve(peaks=i[3])
+
+
+if __name__ == '__main__':
+    # testBacBursts()
+    bacBurstFailed()
 
 """
 

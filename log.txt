@@ -1,6 +1,5 @@
 ------------------------
 New Test: 18.4.2017
- starting download
 
 Observatories: AUSTRIA-UNIGRAZ & AUSTRIA
 peaks mistakenly found:
@@ -8,7 +7,6 @@ peaks mistakenly found:
 All events found (1)
 ------------------------
 New Test: 10.6.2017
- starting download
 
 Observatories: AUSTRIA-UNIGRAZ & AUSTRIA
 No Bursts AUSTRIA-UNIGRAZ  AUSTRIA
@@ -18,8 +16,6 @@ Events not found (1/1):
  [[11:34:00, 1]]
 ------------------------
 New Test: 11.7.2017
- starting download
-
 Observatories: AUSTRIA-UNIGRAZ & AUSTRIA
 No Bursts AUSTRIA-UNIGRAZ  AUSTRIA
 
@@ -28,28 +24,23 @@ Events not found (1/1):
  [[13:20:00, 1]]
 ------------------------
 New Test: 2.9.2017
- starting download
 
 Observatories: AUSTRIA-UNIGRAZ & AUSTRIA
 No false peaks found
 All events found (1)
 ------------------------
 New Test: 4.9.2017
- starting download
 
 Observatories: AUSTRIA-UNIGRAZ & AUSTRIA
 No false peaks found
 All events found (1)
 ------------------------
 New Test: 6.9.2017
- starting download
-
 Observatories: AUSTRIA-UNIGRAZ & AUSTRIA
 No false peaks found
 All events found (2)
 ------------------------
 New Test: 7.9.2017
- starting download
 
 Observatories: AUSTRIA-UNIGRAZ & AUSTRIA
 No Bursts AUSTRIA-UNIGRAZ  AUSTRIA
@@ -59,17 +50,14 @@ Events not found (3/3):
  [[09:53:00, 1], [10:15:00, 1], [12:55:00, 1]]
 ------------------------
 New Test: 8.9.2017
- starting download
 
 Observatories: AUSTRIA-UNIGRAZ & AUSTRIA
-/home/lhoefig/.local/lib/python3.9/site-packages/pandas/core/series.py:872: UserWarnin     g: Warning: converting a masked element to nan.
-  return np.asarray(self._values, dtype)
+
 No false peaks found
 Events not found (1/7):
  [[15:37:00, 1]]
 ------------------------
 New Test: 9.9.2017
- starting download
 
 Observatories: AUSTRIA-UNIGRAZ & AUSTRIA
 No Bursts AUSTRIA-UNIGRAZ  AUSTRIA
@@ -79,7 +67,6 @@ Events not found (2/2):
  [[11:17:00, 1], [11:44:00, 1]]
 ------------------------
 New Test: 27.9.2017
- starting download
 
 Observatories: AUSTRIA-UNIGRAZ & AUSTRIA-OE3FLB
 No Bursts AUSTRIA-UNIGRAZ  AUSTRIA-OE3FLB
@@ -88,12 +75,73 @@ No false peaks found
 Events not found (1/1):
  [[12:10:00, 1]]
 ------------------------
-New Test: 8.3.2017
- starting download
+New Test: 8.3.2020
 
-Traceback (most recent call last):
-  File "/home/lhoefig/eCallistoRadioBursts/main.py", line 412, in <module>
-    testBacBursts()
-  File "/home/lhoefig/eCallistoRadioBursts/main.py", line 402, in testBacBursts
-    print("Observatories: {} & {}".format(obs_[0], obs_[1]))
-IndexError: list index out of range
+Observatories: AUSTRIA-UNIGRAZ & AUSTRIA-OE3FLB
+No Bursts AUSTRIA-UNIGRAZ  AUSTRIA-OE3FLB
+
+No false peaks found
+Events not found (2/2):
+ [[15:33:00, 1], [15:36:00, 1]]
+------------------------
+New Test: 27.10.2020
+
+Observatories: AUSTRIA-UNIGRAZ & AUSTRIA-OE3FLB
+No false peaks found
+All events found (3)
+------------------------
+New Test: 20.11.2020
+
+Observatories: AUSTRIA-UNIGRAZ & AUSTRIA-OE3FLB
+No Bursts AUSTRIA-UNIGRAZ  AUSTRIA-OE3FLB
+
+No false peaks found
+Events not found (1/1):
+ [[13:28:00, 1]]
+------------------------
+New Test: 21.11.2020
+
+Observatories: AUSTRIA-UNIGRAZ & AUSTRIA-OE3FLB
+peaks mistakenly found:
+11:36:23 c:  0.8384554203999549
+All events found (2)
+------------------------
+New Test: 22.11.2020
+
+Observatories: AUSTRIA-UNIGRAZ & AUSTRIA-OE3FLB
+No false peaks found
+Events not found (1/3):
+ [[14:17:00, 1]]
+------------------------
+New Test: 27.12.2020
+
+Observatories: AUSTRIA-UNIGRAZ & AUSTRIA-OE3FLB
+No Bursts AUSTRIA-UNIGRAZ  AUSTRIA-OE3FLB
+
+No false peaks found
+Events not found (2/2):
+ [[11:37:00, 1], [12:35:00, 1]]
+------------------------
+New Test: 30.12.2020
+
+Observatories: AUSTRIA-UNIGRAZ & AUSTRIA-OE3FLB
+No Bursts AUSTRIA-UNIGRAZ  AUSTRIA-OE3FLB
+
+No false peaks found
+Events not found (1/1):
+ [[14:26:00, 1]]
+------------------------
+New Test: 24.4.2021
+
+Observatories: AUSTRIA-UNIGRAZ & AUSTRIA-OE3FLB
+No false peaks found
+All events found (1)
+------------------------
+New Test: 26.4.2021
+
+Observatories: AUSTRIA-UNIGRAZ & AUSTRIA-OE3FLB
+No Bursts AUSTRIA-UNIGRAZ  AUSTRIA-OE3FLB
+
+No false peaks found
+Events not found (1/1):
+ [[13:56:00, 1]]

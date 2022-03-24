@@ -96,10 +96,10 @@ class Correlation:
         # TODO set min delta t for times
         within_burst = False
         peaks = []
-        if np.nanmax(self.data_curve) < _limit:
-            print("No Bursts {}  {} \n".format(self.data_point_1.observatory.name,
-                                               self.data_point_2.observatory.name))
-            return
+        # if np.nanmax(self.data_curve) < _limit:
+        #     print("No Bursts {}  {} \n".format(self.data_point_1.observatory.name,
+        #                                        self.data_point_2.observatory.name))
+        #     return
         for point in range(len(self.data_curve)):
             if self.data_curve[point] > _limit and not within_burst:
                 peaks.append([point, self.data_curve[point]])
@@ -154,8 +154,7 @@ class Correlation:
             print("Events not found ({}/{}): \n".format(len(events), len(test.events)), events)
         else:
             print("All events found ({})".format(len(test.events)))
-        # check if all official peaks found -> over all observatories
-        # check that nothing else is found
+        # -> return number_found, number_to_find,
 
     def setupFreqRange(self):
         frequency_low = max(self.data_point_1.spectrum_data.freq_axis[-1],

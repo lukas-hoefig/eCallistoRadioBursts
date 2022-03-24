@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import copy
 from datetime import datetime
+import time
 import os
 from typing import List
 
@@ -39,6 +40,8 @@ class DataPoint:
         self.binned_time = False
         self.binned_time_width = 1
         self.background_subtracted = False
+        self.flattened = False
+        self.flattened_window = 1
 
         reader = file.rsplit('/')[-1]
         self.file_name = reader
@@ -204,11 +207,19 @@ class DataPoint:
         median = np.array(pd.Series(self.summedCurve).rolling(rolling_window).median())
         arr = np.array(self.summedCurve)
         self.summedCurve = arr - median
+        self.flattened = True
+        self.flattened_window = rolling_window
 
-    def plotSummedCurve(self):
+    def plotSummedCurve(self, peaks=None):
         plotCurve(self.spectrum_data.time_axis, self.summedCurve, self.spectrum_data.start.timestamp(),
-                  self.binned_time, self.binned_time_width)
+                  self.binned_time, self.binned_time_width, peaks=peaks, file_name=self.fileName())
 
+    def fileName(self):
+        return "{}_{}_{}_{}{}{}{}{}.png"\
+            .format(self.year, self.month, self.day, self.observatory,
+                    ["", "_nobg"][self.background_subtracted], ["", "_binfreq"][self.binned_freq],
+                    ["", "_bintime_{}".format(self.binned_time)][self.binned_time_width],
+                    ["", "_flatten_{}".format(self.flattened)][self.flattened_window])
 
 def createDay(_year: int, _month: int, _day: int, _observatory: observatories.Observatory,
               _spectral_range: List[int]):
@@ -290,7 +301,7 @@ def fitTimeFrameDataSample(_data_point1: List[DataPoint], _data_point2: List[Dat
     return data_merged1, data_merged2
 
 
-def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, _plot=True, file_name=None):
+def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, _plot=True, file_name=None, peaks=None):
     if _bin_time:
         data_per_second = DATA_POINTS_PER_SECOND / _bin_time_width
     else:
@@ -298,7 +309,7 @@ def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, _plot=True,
     time_axis_plot = []
     for i in range(len(_time)):
         time_axis_plot.append(
-            datetime.fromtimestamp(_time_start + i / data_per_second).strftime("%D %H:%M:%S.%f")[:-3])
+            datetime.fromtimestamp(_time_start + i / data_per_second).strftime("%H:%M:%S"))
     time_axis_plot = pd.to_datetime(time_axis_plot)
     dataframe = pd.DataFrame()
     dataframe['data'] = _data
@@ -307,6 +318,12 @@ def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, _plot=True,
     plt.figure(figsize=(16, 9))
     plt.xticks(rotation=90)
     plt.plot(dataframe)
+    if peaks:
+        if type(peaks) == str:
+            peaks = list(peaks)
+        for i in peaks:
+            timestamp = time.mktime(datetime.strptime(datetime.fromtimestamp(_time_start).strftime("%Y %m %d ") + i, "%Y %m %d %H:%M:%S").timetuple())
+            plt.axvline(timestamp)
 
     if _plot:
         plt.show()
