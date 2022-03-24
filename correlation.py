@@ -147,13 +147,13 @@ class Correlation:
         if peaks:
             print("peaks mistakenly found: ")
             for p in peaks:
-                print(p.time)
+                print(p.time, "c: ", p.probability)
         else:
             print("No false peaks found")
         if events:
-            print("Events not found: \n", events)
+            print("Events not found ({}/{}): \n".format(len(events), len(test.events)), events)
         else:
-            print("All events found")
+            print("All events found ({})".format(len(test.events)))
         # check if all official peaks found -> over all observatories
         # check that nothing else is found
 

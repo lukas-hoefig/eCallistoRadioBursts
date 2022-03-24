@@ -9,6 +9,7 @@ import copy
 from typing import List
 
 import const
+import observatories as obs
 
 path_script = const.path_script
 path_data = const.path_data
@@ -122,6 +123,6 @@ def observatoriesAvailable(_year, _month, _day):
     observatories_available = []
     for i in observatories:
         if not i.endswith('-'):
-            observatories_available.append(i)
+            observatories_available.append(obs.observatory_dict[i])
 
     return data_available, observatories_available

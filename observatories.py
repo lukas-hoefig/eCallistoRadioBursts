@@ -19,6 +19,12 @@ class Observatory:
         self.name = name
         self.spectral_range = spectral_range
 
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return self.__str__()
+
     def getSpectralRange(self, identification: str):
         """
         get spectral range of files
