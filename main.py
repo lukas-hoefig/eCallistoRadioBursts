@@ -3,6 +3,7 @@
 
 import matplotlib.pyplot as plt
 
+import const
 import data
 import observatories
 import download
@@ -35,7 +36,7 @@ day_2 = 6
 
 def testBacBursts():
     reference = [[2017, 4, 18, correlation.Comparison(["09:36:00"])],
-                 [2017, 6, 10, correlation.Comparison(["11:34:00"])],
+                 [2017, 6, 1, correlation.Comparison(["11:34:00"])],
                  [2017, 7, 11, correlation.Comparison(["13:20:00"])],
                  [2017, 9, 2, correlation.Comparison(["12:28:00"])],
                  [2017, 9, 4, correlation.Comparison(["08:33:00"])],
@@ -75,7 +76,7 @@ def testBacBursts():
 
 
 def bacBurstFailed():
-    eventlist = [[2017, 6, 10, '11:34:00']]
+    eventlist = [[2017, 6, 1, '11:34:00']]
     obs = [observatories.uni_graz, observatories.austria, observatories.triest]
 
     fig, ax = plt.subplots(figsize=(16, 9))
@@ -85,6 +86,7 @@ def bacBurstFailed():
             download.downloadFullDay(i[0], i[1], i[2], o.name)
             dp = data.createFromTime(i[0], i[1], i[2], i[3], o, spec_range)
             dp.createSummedCurve(spec_range)
+            dp.flattenSummedCurve(const.ROLL_WINDOW)
             dp.plotSummedCurve(ax, peaks=i[3])
 
     plt.tight_layout()
@@ -95,8 +97,8 @@ def bacBurstFailed():
 
 
 if __name__ == '__main__':
-    # testBacBursts()
-    bacBurstFailed()
+    testBacBursts()
+    # bacBurstFailed()
 
 """
 

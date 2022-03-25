@@ -69,8 +69,6 @@ def createLog(_year: int, _month: int, _day: int, _observatories: List[str], _ov
 
     TODO: don't create file if day == today
 
-    TODO: check if files were actually downloaded
-
     :param _year:
     :param _month:
     :param _day:

@@ -111,7 +111,7 @@ class Correlation:
             if within_burst and self.data_curve[point] < CORRELATION_PEAK_END:
                 within_burst = False
 
-        if peaks[0]:
+        if peaks:
             for i in peaks:
                 i[0] = datetime.fromtimestamp(i[0] / self.data_per_second + self.time_start).strftime(
                     "%H:%M:%S")
@@ -177,6 +177,10 @@ class Correlation:
     def setupSummedCurves(self):
         setupSummedCurve(self.data_point_1, self.frequency_range, self.flatten, self.flatten_window)
         setupSummedCurve(self.data_point_2, self.frequency_range, self.flatten, self.flatten_window)
+
+    def plotCurve(self):
+        # TODO
+        raise NotImplementedError
 
 
 def setupSummedCurve(data_point, frequency_range, flatten, flatten_window):

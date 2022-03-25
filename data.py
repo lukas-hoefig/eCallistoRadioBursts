@@ -219,7 +219,7 @@ class DataPoint:
             .format(self.year, self.month, self.day, self.observatory,
                     ["", "_nobg"][self.background_subtracted], ["", "_binfreq"][self.binned_freq],
                     ["", "_bintime_{}".format(self.binned_time)][self.binned_time_width],
-                    ["", "_flatten_{}".format(self.flattened)][self.flattened_window])
+                    ["", "_flatten_{}".format(self.flattened_window)][self.flattened])
 
 
 def createDay(_year: int, _month: int, _day: int, _observatory: observatories.Observatory,
