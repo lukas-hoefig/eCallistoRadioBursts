@@ -299,6 +299,9 @@ def plotDataTime(_time: List[float], _data: List[float], _time_start: float,
     plt.close()
 
 
+# remove everything above - obsolete
+
+
 class Time:
     def __init__(self, time):
         self.h, self.m, self.s = time.rsplit(':')
@@ -329,9 +332,9 @@ class Event:
         return (self.time.float - other.time.float) < TIME_TOLERANCE
 
     def inList(self, _list):
-        for i in _list:
-            if self.compare(i):
-                return True
+        for i in range(len(_list)):
+            if self.compare(_list[i]):
+                return i
         return False
 
 

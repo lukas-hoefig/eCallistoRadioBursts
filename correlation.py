@@ -10,6 +10,7 @@ import analysis
 import data
 import observatories
 import const
+from typing import List, Union
 
 CORRELATION_MIN = 0.70
 CORRELATION_PEAK_END = CORRELATION_MIN / 7
@@ -136,7 +137,7 @@ class Correlation:
 
     def compareToTest(self, test: Comparison):
         """
-        :return: [#found, #not found, #false found]
+        :return: [not found, false found]
         """
         peaks = copy.copy(self.peaks)
         events = copy.copy(test.events)
@@ -158,7 +159,7 @@ class Correlation:
         else:
             print("All events found ({})".format(len(test.events)))
         # -> return number_found, number_to_find,
-        return [len(test.events) - len(events), len(events), len(peaks)]
+        return [events, peaks]
 
     def setupFreqRange(self):
         frequency_low = max(self.data_point_1.spectrum_data.freq_axis[-1],
@@ -191,3 +192,15 @@ def setupSummedCurve(data_point, frequency_range, flatten, flatten_window):
     data_point.createSummedCurve(frequency_range)
     if flatten:
         data_point.flattenSummedCurve(flatten_window)
+
+
+def addEventsToList(to_add: List[analysis.Event], add_to: List[analysis.Event]):
+    for i in to_add:
+        if not i.inList(add_to):
+            add_to.append(i)
+
+
+def removeEventFromList(to_remove: List[analysis.Event], remove_from: List[analysis.Event]):
+    for i in to_remove:
+        if i.inList(remove_from):
+            remove_from.pop(i.inList(remove_from))
