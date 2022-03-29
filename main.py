@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 import const
 import data
@@ -34,7 +35,7 @@ month_2 = 9
 day_2 = 6
 
 
-def testBacBursts():
+def testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w):
     reference = [[2017, 4, 18, correlation.Comparison(["09:36:00"])],
                  [2017, 6, 1, correlation.Comparison(["11:34:00"])],
                  [2017, 7, 11, correlation.Comparison(["13:20:00"])],
@@ -58,6 +59,13 @@ def testBacBursts():
     obs = [observatories.uni_graz, observatories.oe3flb, observatories.swiss_landschlacht, observatories.austria]
     obs_dl = [i.name for i in obs]
 
+    print("------------------------------------------------\nNew try: {}{}{}{}{}\n------------------------------------------------"
+          .format(["", "reduced background, "][nobg],
+                  ["", "bin_f, "][bin_f],
+                  ["", "bin_t:{}".format(bin_t_w)][bin_t],
+                  ["", "flatten:{}".format(flatten_w)][flatten],
+                  "r_window:{}".format(r_w)))
+    result = np.array([0, 0, 0])
     for i in reference:
         year = i[0]
         month = i[1]
@@ -70,9 +78,10 @@ def testBacBursts():
         dp_1 = data.createDay(year, month, day, obs_[0], spec_range)
         dp_2 = data.createDay(year, month, day, obs_[1], spec_range)
         dp_1_clean, dp_2_clean = data.fitTimeFrameDataSample(dp_1, dp_2)
-        corr = correlation.Correlation(dp_1_clean, dp_2_clean, False, False, False, False, 1, 1, 160)
+        corr = correlation.Correlation(dp_1_clean, dp_2_clean, nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
         corr.getPeaks()
-        corr.compareToTest(i[3])
+        result += corr.compareToTest(i[3])
+    print("Found {}\nNot Found{}\nFalse peaks{}".format(result[0], result[1], result[2]))
 
 
 def bacBurstFailed():
@@ -92,13 +101,64 @@ def bacBurstFailed():
     plt.tight_layout()
     plt.show()
 
+    fig, ax = plt.subplots(figsize=(16, 9))
+
+    for i in eventlist:
+        download.downloadFullDay(i[0], i[1], i[2], obs[0].name)
+        download.downloadFullDay(i[0], i[1], i[2], obs[1].name)
+        dp1 = data.createFromTime(i[0], i[1], i[2], i[3], obs[0], spec_range)
+        dp2 = data.createFromTime(i[0], i[1], i[2], i[3], obs[1], spec_range)
+        corr = correlation.Correlation(dp1, dp2, False, False, True, True, 16, 500, 180)
+        corr.getPeaks()
+        corr.plotCurve(ax, i[3])
+        corr.compareToTest(correlation.Comparison([i[3]]))
+
+    plt.tight_layout()
+    plt.show()
+
 
 # TODO test difficult days with others stations -> improvement?
 
 
 if __name__ == '__main__':
-    testBacBursts()
     # bacBurstFailed()
+
+    nobg = False
+    bin_f = False
+    bin_t = False
+    flatten = False
+    bin_t_w = 1
+    flatten_w = 1
+    # nobg = True
+    # for r_w in range(20, 260, 20):
+    #     testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
+    #
+    # r_w = 160
+    # flatten = True
+    # for flatten_w in range(40, 400, 60):
+    #     testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
+    #
+    # r_w = 160
+    # flatten = False
+    # bin_t = True
+    # for bin_t_w in range(2, 16, 2):
+    #     testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
+
+    # r_w = 180
+    # flatten = True
+    # flatten_w = 220
+    # bin_f = True
+    # for nobg in range(2):
+    #     testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
+
+    flatten = True
+    flatten_w = 220
+    bin_f = True
+    nobg = True
+    bin_t = True
+    bin_t_w = 4
+    for r_w in range(120, 260, 10):
+        testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
 
 """
 

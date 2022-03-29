@@ -135,6 +135,9 @@ class Correlation:
             print(i)
 
     def compareToTest(self, test: Comparison):
+        """
+        :return: [#found, #not found, #false found]
+        """
         peaks = copy.copy(self.peaks)
         events = copy.copy(test.events)
         for event in test.events:
@@ -155,6 +158,7 @@ class Correlation:
         else:
             print("All events found ({})".format(len(test.events)))
         # -> return number_found, number_to_find,
+        return [len(test.events) - len(events), len(events), len(peaks)]
 
     def setupFreqRange(self):
         frequency_low = max(self.data_point_1.spectrum_data.freq_axis[-1],
@@ -178,9 +182,9 @@ class Correlation:
         setupSummedCurve(self.data_point_1, self.frequency_range, self.flatten, self.flatten_window)
         setupSummedCurve(self.data_point_2, self.frequency_range, self.flatten, self.flatten_window)
 
-    def plotCurve(self):
-        # TODO
-        raise NotImplementedError
+    def plotCurve(self, ax, peaks=None):
+        data.plotCurve(self.time_axis, self.data_curve, self.time_start, self.bin_time, self.bin_time_width,
+                       ax, peaks=peaks, new_ax=False)
 
 
 def setupSummedCurve(data_point, frequency_range, flatten, flatten_window):

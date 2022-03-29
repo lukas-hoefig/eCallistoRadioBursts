@@ -212,7 +212,7 @@ class DataPoint:
 
     def plotSummedCurve(self, ax, peaks=None):
         plotCurve(self.spectrum_data.time_axis, self.summedCurve, self.spectrum_data.start.timestamp(),
-                  self.binned_time, self.binned_time_width, ax, peaks=peaks, file_name=self.fileName())
+                  self.binned_time, self.binned_time_width, ax, peaks=peaks, new_ax=True)
 
     def fileName(self):
         return "{}_{}_{}_{}{}{}{}{}.png"\
@@ -302,7 +302,7 @@ def fitTimeFrameDataSample(_data_point1: List[DataPoint], _data_point2: List[Dat
     return data_merged1, data_merged2
 
 
-def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, axis, _plot=True, file_name=None, peaks=None):
+def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, axis, _plot=True, peaks=None, new_ax=False):
     plotCurve.curve += 1
     if _bin_time:
         data_per_second = DATA_POINTS_PER_SECOND / _bin_time_width
@@ -316,19 +316,31 @@ def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, axis, _plot
     dataframe = pd.DataFrame()
     dataframe['data'] = _data
 
-    ax = axis.twinx()
-    ax.set_axis_off()
-    ax.tick_params(axis='y')
-    dataframe = dataframe.set_index(time_axis_plot)
-    plt.xticks(rotation=90)
-    ax.plot(dataframe, color=const.plot_colors[plotCurve.curve], linewidth=1)
+    if new_ax:
+        ax = axis.twinx()
+        ax.set_axis_off()
+        ax.tick_params(axis='y')
+        dataframe = dataframe.set_index(time_axis_plot)
+        plt.xticks(rotation=90)
+        ax.plot(dataframe, color=const.plot_colors[plotCurve.curve], linewidth=1)
 
-    if peaks:
-        if type(peaks) == str:
-            peaks = [peaks]
-        for i in peaks:
-            ax.axvline(pd.to_datetime(datetime.strptime(datetime.fromtimestamp(_time_start).strftime("%Y %m %d ") + i, "%Y %m %d %H:%M:%S")), linestyle='--')
+        if peaks:
+            if type(peaks) == str:
+                peaks = [peaks]
+            for i in peaks:
+                ax.axvline(pd.to_datetime(datetime.strptime(datetime.fromtimestamp(_time_start).strftime("%Y %m %d ") + i, "%Y %m %d %H:%M:%S")), linestyle='--')
+    else:
+        dataframe = dataframe.set_index(time_axis_plot)
+        plt.xticks(rotation=90)
+        plt.plot(dataframe, color=const.plot_colors[plotCurve.curve], linewidth=1)
 
+        if peaks:
+            if type(peaks) == str:
+                peaks = [peaks]
+            for i in peaks:
+                plt.axvline(pd.to_datetime(
+                    datetime.strptime(datetime.fromtimestamp(_time_start).strftime("%Y %m %d ") + i,
+                                      "%Y %m %d %H:%M:%S")), linestyle='--')
     # functions this maybe
     # if _plot:
     #     plt.show()
