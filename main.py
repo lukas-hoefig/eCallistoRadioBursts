@@ -107,8 +107,9 @@ def bacBurstFailed():
 
     for o in obs:
         for i in failed:
+            time = i[3].events[0].time
             download.downloadFullDay(i[0], i[1], i[2], o.name)
-            dp = data.createFromTime(i[0], i[1], i[2], i[3], o, spec_range)
+            dp = data.createFromTime(i[0], i[1], i[2], time, o, spec_range)
             dp.createSummedCurve(spec_range)
             dp.flattenSummedCurve(const.ROLL_WINDOW)
             dp.plotSummedCurve(ax, peaks=i[3])
