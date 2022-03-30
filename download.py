@@ -48,7 +48,7 @@ def downloadFullDay(_year: int, _month: int, _day: int, _observatories: List[str
                 _observatories.remove(observatory)
             except ValueError:
                 try:
-                    _observatories.remove(observatory + '-')
+                    _observatories.remove(observatory.rstrip('-'))
                 except ValueError:
                     pass
     if not os.path.exists(download_path):

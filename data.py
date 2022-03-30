@@ -156,7 +156,7 @@ class DataPoint:
         time_min = self.spectrum_data.time_axis[0]
         time_max = self.spectrum_data.time_axis[-1]
         data = self.spectrum_data.data
-        time_range = np.arange(time_min, time_max - width, width)
+        time_range = np.arange(time_min, time_max - width, width / DATA_POINTS_PER_SECOND)
 
         entries_per_bin = len(self.spectrum_data.time_axis) / len(time_range)
         data_binned = [[] for i in range(len(data))]
@@ -218,7 +218,7 @@ class DataPoint:
         return "{}_{}_{}_{}{}{}{}{}.png"\
             .format(self.year, self.month, self.day, self.observatory,
                     ["", "_nobg"][self.background_subtracted], ["", "_binfreq"][self.binned_freq],
-                    ["", "_bintime_{}".format(self.binned_time)][self.binned_time_width],
+                    ["", "_bintime_{}".format(self.binned_time_width)][self.binned_time],
                     ["", "_flatten_{}".format(self.flattened_window)][self.flattened])
 
 

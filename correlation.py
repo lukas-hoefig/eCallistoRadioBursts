@@ -65,6 +65,7 @@ class Correlation:
                                 DATA_POINTS_PER_SECOND / self.bin_time_width][self.bin_time]
 
         self.setupFreqRange()
+        self.modulateData()
         self.setupSummedCurves()
         self.setupTimeAxis()
         self.correlateCurves()
@@ -186,6 +187,14 @@ class Correlation:
     def plotCurve(self, ax, peaks=None):
         data.plotCurve(self.time_axis, self.data_curve, self.time_start, self.bin_time, self.bin_time_width,
                        ax, peaks=peaks, new_ax=False)
+
+    def modulateData(self):
+        if self.bin_time:
+            self.data_point_1.binDataTime(width=self.bin_time_width)
+            self.data_point_2.binDataTime(width=self.bin_time_width)
+        if self.bin_frequency:
+            self.data_point_1.binDataFreq()
+            self.data_point_2.binDataFreq()
 
 
 def setupSummedCurve(data_point, frequency_range, flatten, flatten_window):
