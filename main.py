@@ -51,7 +51,7 @@ def testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w):
                  [2020, 12, 30, correlation.Comparison(["14:26:00"])],
                  [2021, 4, 24, correlation.Comparison(["10:23:00"])],
                  [2021, 4, 26, correlation.Comparison(["13:56:00"])]]
-    obs = [observatories.uni_graz, observatories.oe3flb, observatories.swiss_landschlacht, observatories.austria]
+    obs = [observatories.swiss_landschlacht, observatories.glasgow.uni_graz, observatories.oe3flb, observatories.swiss_landschlacht, observatories.austria]
     obs_dl = [i.name for i in obs]
 
     print("------------------------------------------------"

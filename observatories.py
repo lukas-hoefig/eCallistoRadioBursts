@@ -78,6 +78,11 @@ stat_triest = "TRIEST"
 spec_range_triest = {"57": [45, 81]}
 triest = Observatory(stat_triest, spec_range_triest)
 
+stat_glasgow = "GLASGOW"
+spec_range_glasgow = {"59": [45, 81]}
+glasgow = Observatory(stat_glasgow, spec_range_glasgow)
+
+
 # ----------------------------------------------------
 """
 TODO -> class this 
@@ -85,6 +90,6 @@ TODO -> class this
 """
 observatory_dict = {stat_uni_graz: uni_graz, stat_triest: triest, stat_oe3flb: oe3flb,
                     stat_swiss_heiterswil: swiss_heiterswil, stat_swiss_hb9sct: swiss_hb9sct, stat_austria: austria,
-                    stat_swiss_landschlacht: swiss_landschlacht}
+                    stat_swiss_landschlacht: swiss_landschlacht, stat_glasgow: glasgow}
 observatory_list = [stat_uni_graz, stat_triest, stat_oe3flb, stat_swiss_heiterswil, stat_swiss_hb9sct, stat_austria,
-                    stat_swiss_landschlacht]
+                    stat_swiss_landschlacht, stat_glasgow]
