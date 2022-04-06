@@ -51,8 +51,8 @@ def testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w):
                  [2020, 12, 30, correlation.Comparison(["14:26:00"])],
                  [2021, 4, 24, correlation.Comparison(["10:23:00"])],
                  [2021, 4, 26, correlation.Comparison(["13:56:00"])]]
-    obs = [observatories.swiss_landschlacht, observatories.glasgow.uni_graz, observatories.oe3flb, observatories.swiss_landschlacht, observatories.austria]
-    obs_dl = [i.name for i in obs]
+    observatory = [observatories.uni_graz, observatories.oe3flb, observatories.swiss_landschlacht, observatories.austria]
+    obs_dl = [i.name for i in observatory]
 
     print("------------------------------------------------"
           "\nNew try: {}{}{}{}{}\n------------------------------------------------"
@@ -63,24 +63,25 @@ def testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w):
                   "r_window:{}".format(r_w)))
 
     events = np.array([0, 0])
-    for i in reference:
-        year = i[0]
-        month = i[1]
-        day = i[2]
+    for _test in reference:
+        year = _test[0]
+        month = _test[1]
+        day = _test[2]
         print("------------------------\n"
               "New Test: {}.{}.{}\n".format(day, month, year))
-        download.downloadFullDay(i[0], i[1], i[2], obs_dl)
+        download.downloadFullDay(year, month, day, obs_dl)
         obs_ = download.observatoriesAvailable(year, month, day)[1]
+
         print("Observatories: {} & {}".format(obs_[0], obs_[1]))
         dp_1 = data.createDay(year, month, day, obs_[0], spec_range)
         dp_2 = data.createDay(year, month, day, obs_[1], spec_range)
         dp_1_clean, dp_2_clean = data.fitTimeFrameDataSample(dp_1, dp_2)
         corr = correlation.Correlation(dp_1_clean, dp_2_clean, nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
         corr.getPeaks()
-        result = corr.compareToTest(i[3])
-        correlation.addEventsToList(result[0], events[0])
-        correlation.addEventsToList(result[1], events[1])
-    print("Not Found\n {}\nFalse peaks\n {}".format(len(events[0]), len(events[1])))
+        result = corr.compareToTest(_test[3])
+        events[0] += len(result[0])
+        events[1] += len(result[1])
+    print("Not Found\n {}\nFalse peaks\n {}".format(events[0], events[1]))
 
 
 def bacBurstFailed():
@@ -137,44 +138,44 @@ def bacBurstFailed():
 
 
 if __name__ == '__main__':
-    bacBurstFailed()
+    # bacBurstFailed()
 
-    # nobg = False
-    # bin_f = False
-    # bin_t = False
-    # flatten = False
-    # bin_t_w = 1
-    # flatten_w = 1
+    nobg = False
+    bin_f = False
+    bin_t = False
+    flatten = False
+    bin_t_w = 1
+    flatten_w = 1
     # nobg = True
-    # for r_w in range(20, 260, 20):
-    #     testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
-    #
-    # r_w = 160
-    # flatten = True
-    # for flatten_w in range(40, 400, 60):
-    #     testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
-    #
-    # r_w = 160
-    # flatten = False
-    # bin_t = True
-    # for bin_t_w in range(2, 16, 2):
-    #     testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
+    for r_w in range(20, 260, 20):
+        testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
 
-    # r_w = 180
-    # flatten = True
-    # flatten_w = 220
-    # bin_f = True
-    # for nobg in range(2):
-    #     testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
+    r_w = 160
+    flatten = True
+    for flatten_w in range(40, 400, 60):
+        testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
 
-    # flatten = True
-    # flatten_w = 220
-    # bin_f = True
-    # nobg = True
-    # bin_t = True
-    # bin_t_w = 4
-    # for r_w in range(120, 260, 10):
-    #     testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
+    r_w = 160
+    flatten = False
+    bin_t = True
+    for bin_t_w in range(2, 16, 2):
+        testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
+
+    r_w = 180
+    flatten = True
+    flatten_w = 220
+    bin_f = True
+    for nobg in range(2):
+        testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
+
+    flatten = True
+    flatten_w = 220
+    bin_f = True
+    nobg = True
+    bin_t = True
+    bin_t_w = 4
+    for r_w in range(120, 260, 10):
+        testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
 
 """
 

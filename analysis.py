@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import copy
 from datetime import datetime
 
-from typing import List
+from typing import List, Union
 
 import data
 import observatories
@@ -328,16 +328,75 @@ class Event:
     def __eq__(self, other):
         return self.time == other.time
 
+    def __add__(self, other):
+        return EventList([self, other])
+
+    def __iadd__(self, other):
+        return self.__add__(other)
+
     def compare(self, other):
-        return (self.time.float - other.time.float) < TIME_TOLERANCE
+        return abs(self.time.float - other.time.float) < TIME_TOLERANCE
 
     def inList(self, _list):
         for i in range(len(_list)):
             if self.compare(_list[i]):
-                return i
+                return True, i
         return False
 
 
-"""
-function -> per day, pick observatories, download data -> correlate for observatories for which there is data
-"""
+class EventList:
+    def __init__(self, events: Union[Event, list[Event]]):
+        self.events = []
+        if isinstance(events, Event):
+            self.events = [events]
+        elif len(events) > 1:
+            self.events = events
+
+    def __getitem__(self, item):
+        return self.events[item]
+
+    def __len__(self):
+        return len(self.events)
+
+    def __bool__(self):
+        return bool(len(self.events))
+
+    def __add__(self, other):
+        if isinstance(other, Event):
+            return self.__radd__(other)
+        for i in other.events:
+            if not i.inList(self.events):
+                self.events.append(i)
+        return self
+
+    def __radd__(self, other):
+        if not isinstance(other, Event):
+            raise TypeError
+        if not other.inList(self.events):
+            self.events.append(other)
+        return self
+
+    def __sub__(self, other):
+        if isinstance(other, Event):
+            return self.__rsub__(other)
+        for i in other:
+            if i.inList(self.events):
+                self.events.remove(i)
+        return self
+
+    def __rsub__(self, other):
+        if not isinstance(other, Event):
+            raise TypeError
+        if other.inList(self.events):
+            self.events.remove(other)
+        return self
+
+    def __iadd__(self, other):
+        if isinstance(other, Event):
+            return self.__radd__(other)
+        return self.__add__(other)
+
+    def __isub__(self, other):
+        if isinstance(other, Event):
+            return self.__rsub__(other)
+        return self.__sub__(other)

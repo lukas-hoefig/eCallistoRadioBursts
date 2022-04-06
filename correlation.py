@@ -34,9 +34,12 @@ BIN_FACTOR = const.BIN_FACTOR
 #         super().__init__()
 #         raise NotImplementedError
 
-class Comparison:
-    def __init__(self, events):
-        self.events = [analysis.Event(event) for event in events]
+class Comparison(analysis.EventList):
+    def __init__(self, events: Union[str, List[str]]):
+        if isinstance(events, str):
+            events = [events]
+        _events = [analysis.Event(event) for event in events]
+        super().__init__(_events)
 
 
 class Correlation:
@@ -55,7 +58,7 @@ class Correlation:
         self.bin_time_width = _bin_time_width
         self.r_window = _r_window
 
-        self.peaks = []
+        self.peaks = analysis.EventList([])
         self.frequency_range = None
         self.time_axis = None
         self.time_start = None
@@ -95,7 +98,6 @@ class Correlation:
         self.data_curve.replace([np.inf, -np.inf], np.nan).tolist()
 
     def getPeaks(self, _limit=CORRELATION_MIN):
-        # TODO set min delta t for times
         within_burst = False
         peaks = []
         # if np.nanmax(self.data_curve) < _limit:
@@ -117,7 +119,7 @@ class Correlation:
             for i in peaks:
                 i[0] = datetime.fromtimestamp(i[0] / self.data_per_second + self.time_start).strftime(
                     "%H:%M:%S")
-                self.peaks.append(analysis.Event(i[0], probability=i[1]))
+                self.peaks += analysis.Event(i[0], probability=i[1])
 
     def fileName(self):
         return "{}_{}_{}_{}_{}_{}{}{}{}{}.png"\
@@ -138,16 +140,17 @@ class Correlation:
 
     def compareToTest(self, test: Comparison):
         """
+        TODO                    redo -> class EventList
         :return: [not found, false found]
         """
         peaks = copy.copy(self.peaks)
         events = copy.copy(test.events)
         for event in test.events:
-            if event.inList(self.peaks):
+            if event.inList(self.peaks.events):
                 events.remove(event)
         for peak in self.peaks:
             if peak.inList(test.events):
-                peaks.remove(peak)
+                peaks -= peak
 
         if peaks:
             print("peaks mistakenly found: ")
@@ -203,6 +206,7 @@ def setupSummedCurve(data_point, frequency_range, flatten, flatten_window):
         data_point.flattenSummedCurve(flatten_window)
 
 
+##########
 def addEventsToList(to_add: List[analysis.Event], add_to: List[analysis.Event]):
     for i in to_add:
         if not i.inList(add_to):
@@ -213,3 +217,4 @@ def removeEventFromList(to_remove: List[analysis.Event], remove_from: List[analy
     for i in to_remove:
         if i.inList(remove_from):
             remove_from.pop(i.inList(remove_from))
+##############
