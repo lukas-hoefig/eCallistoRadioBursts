@@ -14,9 +14,9 @@ import correlation
 
 def missingThings():
     """
-    TODO: everything observatory related with Observatory object
+    TODO: methods binning as variable
 
-    TODO include GLASGOW + BIR , 3 indias,
+    TODO: everything observatory related with Observatory object
 
     TODO: unify spectral range declaration of observatories -> search possible
 
@@ -31,10 +31,10 @@ spec_range = [45, 81]
 
 
 def testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w):
-    reference = [[2017, 4, 18, correlation.Comparison(["09:36:00"])],
+    reference = [[2017, 4, 18, correlation.Comparison(["09:36:00", "09:43:42"])],
                  [2017, 6, 1, correlation.Comparison(["11:34:00"])],
                  [2017, 7, 11, correlation.Comparison(["13:20:00"])],
-                 [2017, 9, 2, correlation.Comparison(["12:28:00"])],
+                 [2017, 9, 2, correlation.Comparison(["12:28:00", "12:21:39"])],
                  [2017, 9, 4, correlation.Comparison(["08:33:00"])],
                  [2017, 9, 6, correlation.Comparison(["09:18:00", "15:25:00"])],
                  [2017, 9, 7, correlation.Comparison(["09:53:00", "10:15:00", "12:55:00"])],
@@ -51,8 +51,8 @@ def testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w):
                  [2020, 12, 30, correlation.Comparison(["14:26:00"])],
                  [2021, 4, 24, correlation.Comparison(["10:23:00"])],
                  [2021, 4, 26, correlation.Comparison(["13:56:00"])]]
-    observatory = [observatories.uni_graz, observatories.oe3flb, observatories.swiss_landschlacht, observatories.austria]
-    obs_dl = [i.name for i in observatory]
+    observatory = [observatories.uni_graz, observatories.triest, observatories.swiss_landschlacht, observatories.oe3flb,
+                   observatories.austria]
 
     print("------------------------------------------------"
           "\nNew try: {}{}{}{}{}\n------------------------------------------------"
@@ -69,7 +69,7 @@ def testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w):
         day = _test[2]
         print("------------------------\n"
               "New Test: {}.{}.{}\n".format(day, month, year))
-        download.downloadFullDay(year, month, day, obs_dl)
+        download.downloadFullDay(year, month, day, observatory)
         obs_ = download.observatoriesAvailable(year, month, day)[1]
 
         print("Observatories: {} & {}".format(obs_[0], obs_[1]))
@@ -170,11 +170,11 @@ if __name__ == '__main__':
 
     flatten = True
     flatten_w = 220
-    bin_f = True
+    bin_f = False
     nobg = True
-    bin_t = True
+    bin_t = False
     bin_t_w = 4
-    for r_w in range(120, 260, 10):
+    for r_w in range(180, 260, 10):
         testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
 
 """
@@ -241,4 +241,14 @@ for each test:
         -> merge result listen  # TODO
     print test results 
 
+"""
+
+# TODO:
+"""
+day, obs1 obs2 -> EventList
+day, obs1 obs3 -> EventList
+day, obs2 obs3 -> EventList
+                      |
+                    merge
+                  compare to reference 
 """

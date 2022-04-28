@@ -13,6 +13,14 @@ ROLL_WINDOW = 180
 plot_colors = ['blue', 'red', 'purple', 'green', 'yellow']
 
 
+def getColor():
+    getColor.counter = (getColor.counter + 1) % len(plot_colors)
+    return plot_colors[getColor.counter]
+
+
+getColor.counter = 0
+
+
 def pathDataDay(year: int, month: int, day: int):
     """
     creates string for the data paths <script>/eCallistoData/<year>/<month>/<day>/

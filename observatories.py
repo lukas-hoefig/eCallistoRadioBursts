@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
+from typing import List
 
 
 class Observatory:
@@ -34,6 +35,19 @@ class Observatory:
         :return: list [low, high]
         """
         return self.spectral_range[identification]
+
+
+class ObservatorySet:
+    def __init__(self, observatories: List[Observatory]):
+        if len(observatories) != 3:
+            raise ValueError
+        self.observatory1 = observatories[0]
+        self.observatory2 = observatories[1]
+        self.observatory3 = observatories[2]
+
+    def getSet(self):
+        return [self.observatory1, self.observatory2], [self.observatory1, self.observatory3], \
+               [self.observatory2, self.observatory3]
 
 
 def specID(_observatory, _spectral_range):
@@ -70,6 +84,10 @@ stat_swiss_heiterswil = "SWISS-HEITERSWIL"
 spec_range_swiss_heiterswil = {"59": [45, 81]}
 swiss_heiterswil = Observatory(stat_swiss_heiterswil, spec_range_swiss_heiterswil)
 
+stat_swiss_heiterswil_old = "Heiterswil-CH"
+spec_range_swiss_heiterswil_old = {"59": [45, 81]}
+swiss_heiterswil_old = Observatory(stat_swiss_heiterswil_old, spec_range_swiss_heiterswil_old)
+
 # stat_swiss_muhen = "SWISS_MUHEN"
 # spec_range_swiss_muhen = {"02": [np.nan,np.nan ]}
 # swiss_muhen = Observatory(stat_swiss_muhen, spec_range_swiss_muhen)
@@ -78,6 +96,11 @@ stat_triest = "TRIEST"
 spec_range_triest = {"57": [45, 81]}
 triest = Observatory(stat_triest, spec_range_triest)
 
+stat_bir = "BIR"
+spec_range_bir = {"01": [45, 81]}
+bir = Observatory(stat_bir, spec_range_bir)
+
+
 # ----------------------------------------------------
 """
 TODO -> class this 
@@ -85,6 +108,21 @@ TODO -> class this
 """
 observatory_dict = {stat_uni_graz: uni_graz, stat_triest: triest, stat_oe3flb: oe3flb,
                     stat_swiss_heiterswil: swiss_heiterswil, stat_swiss_hb9sct: swiss_hb9sct, stat_austria: austria,
-                    stat_swiss_landschlacht: swiss_landschlacht}
+                    stat_swiss_landschlacht: swiss_landschlacht, stat_bir: bir,
+                    stat_swiss_heiterswil_old: spec_range_swiss_heiterswil_old}
 observatory_list = [stat_uni_graz, stat_triest, stat_oe3flb, stat_swiss_heiterswil, stat_swiss_hb9sct, stat_austria,
-                    stat_swiss_landschlacht]
+                    stat_swiss_landschlacht, stat_bir, stat_swiss_heiterswil_old]
+
+# TODO:
+"""
+groups of observatories that should work together
+
+AUSTRIA-UNIGRAZ , TRIEST , SWISS-Landschlacht
+
+Australia-ASSA, INDONESIA, MONGOLIA-UB
+Australia-LMRO, JAPAN-IBARAKI, KASI (south corea), 
+
+Arecibo-Observatory, MEXART, roswell-nm
+
+alaska-cohoe, alaska-haarp
+"""

@@ -227,8 +227,6 @@ def createDay(_year: int, _month: int, _day: int, _observatory: observatories.Ob
     """
     Creates a list with DataPoints for a specific day for a Observatory with a specific spectral range
 
-    TODO: function the spectral_id = next() line
-
     :param _year:
     :param _month:
     :param _day:
@@ -322,7 +320,7 @@ def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, axis, _plot
         ax.tick_params(axis='y')
         dataframe = dataframe.set_index(time_axis_plot)
         plt.xticks(rotation=90)
-        ax.plot(dataframe, color=const.plot_colors[plotCurve.curve], linewidth=1)
+        ax.plot(dataframe, color=const.getColor(), linewidth=1)
 
         if peaks:
             if type(peaks) == str:
@@ -332,7 +330,7 @@ def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, axis, _plot
     else:
         dataframe = dataframe.set_index(time_axis_plot)
         plt.xticks(rotation=90)
-        plt.plot(dataframe, color=const.plot_colors[plotCurve.curve], linewidth=1)
+        plt.plot(dataframe, color=const.getColor(), linewidth=1)
 
         if peaks:
             if type(peaks) == str:

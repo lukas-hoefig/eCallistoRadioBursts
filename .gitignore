@@ -132,3 +132,5 @@ dmypy.json
 .idea/
 install_package.ipynb
 eCallistoData
+*.ipynb
+eCallistoPlot.py

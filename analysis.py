@@ -298,7 +298,20 @@ def plotDataTime(_time: List[float], _data: List[float], _time_start: float,
         plt.savefig(const.path_plots + file_name)
     plt.close()
 
-
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
 # remove everything above - obsolete
 
 
@@ -345,11 +358,11 @@ class Event:
 
 
 class EventList:
-    def __init__(self, events: Union[Event, list[Event]]):
+    def __init__(self, events: Union[Event, List[Event]]):
         self.events = []
         if isinstance(events, Event):
             self.events = [events]
-        elif len(events) > 1:
+        elif isinstance(events, list):
             self.events = events
 
     def __getitem__(self, item):
@@ -400,3 +413,14 @@ class EventList:
         if isinstance(other, Event):
             return self.__rsub__(other)
         return self.__sub__(other)
+
+    def __repr__(self):
+        _str = "["
+        for i in self.events:
+            _str += str(i) + ", "
+        _str = _str.rstrip(", ")
+        _str += "]"
+        return _str
+
+    def __str__(self):
+        return self.__repr__()

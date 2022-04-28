@@ -6,7 +6,7 @@ import radiospectra.sources.callisto as cal
 import os
 import copy
 
-from typing import List
+from typing import List, Union
 
 import const
 import observatories as obs
@@ -17,7 +17,7 @@ date_format = "%Y %m %d %H %M %S"
 file_log = ".datalog"
 
 
-def downloadFullDay(_year: int, _month: int, _day: int, _observatories: List[str]):
+def downloadFullDay(_year: int, _month: int, _day: int, _observatories: Union[List[str], List[obs.Observatory]]):
     """
     downloads all available files of a day for all instruments defined in eCallistoData.py
     files will be located in
@@ -29,8 +29,11 @@ def downloadFullDay(_year: int, _month: int, _day: int, _observatories: List[str
     :param _day:
     """
     _observatories = copy.copy(_observatories)
-    if type(_observatories) == str:
+    if type(_observatories) == str or type(_observatories) == obs.Observatory:
         _observatories = [_observatories]
+    for i in range(len(_observatories)):
+        if type(_observatories[i]) == obs.Observatory:
+            _observatories[i] = _observatories[i].name
 
     download_path = const.pathDataDay(_year, _month, _day)
     hour_start = minute_start = second_start = "00"
