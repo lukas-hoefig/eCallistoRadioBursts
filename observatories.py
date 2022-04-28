@@ -119,7 +119,7 @@ groups of observatories that should work together
 
 AUSTRIA-UNIGRAZ , TRIEST , SWISS-Landschlacht
 
-Australia-ASSA, INDONESIA, MONGOLIA-UB
+Australia-ASSA, INDONESIA, MONGOLIA-UB, INDIA-UDAIPUR, ALMATY
 Australia-LMRO, JAPAN-IBARAKI, KASI (south corea), 
 
 Arecibo-Observatory, MEXART, roswell-nm
