@@ -328,6 +328,9 @@ class Time:
 
 
 class Event:
+    """
+    TODO: start , end, type
+    """
     def __init__(self, time, probability=1):
         self.time = Time(time)
         self.probability = probability

@@ -46,7 +46,7 @@ class Correlation:
     def __init__(self, data_point_1: data.DataPoint, data_point_2: data.DataPoint,
                  _no_background=False, _bin_freq=False, _bin_time=False, _flatten=False,
                  _bin_time_width=4, _flatten_window=100, _r_window=180):
-        # TODO default values
+
         self.data_point_1 = data_point_1
         self.data_point_2 = data_point_2
 

@@ -62,8 +62,8 @@ def testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w):
                   ["", "flatten:{}".format(flatten_w)][flatten],
                   "r_window:{}".format(r_w)))
 
-    events = np.array([0, 0])
     for _test in reference:
+        events = np.array([0, 0])
         year = _test[0]
         month = _test[1]
         day = _test[2]
@@ -71,17 +71,26 @@ def testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w):
               "New Test: {}.{}.{}\n".format(day, month, year))
         download.downloadFullDay(year, month, day, observatory)
         obs_ = download.observatoriesAvailable(year, month, day)[1]
+        stations = observatories.ObservatorySet(obs_[:3])            # function this -> prio list
+        for pair in stations.getSet():
 
-        print("Observatories: {} & {}".format(obs_[0], obs_[1]))
-        dp_1 = data.createDay(year, month, day, obs_[0], spec_range)
-        dp_2 = data.createDay(year, month, day, obs_[1], spec_range)
-        dp_1_clean, dp_2_clean = data.fitTimeFrameDataSample(dp_1, dp_2)
-        corr = correlation.Correlation(dp_1_clean, dp_2_clean, nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
-        corr.getPeaks()
-        result = corr.compareToTest(_test[3])
-        events[0] += len(result[0])
-        events[1] += len(result[1])
-    print("Not Found\n {}\nFalse peaks\n {}".format(events[0], events[1]))
+            print("Observatories: {} & {}".format(pair[0], pair[1]))
+            dp_1 = data.createDay(year, month, day, pair[0], spec_range)
+            dp_2 = data.createDay(year, month, day, pair[1], spec_range)
+            dp_1_clean, dp_2_clean = data.fitTimeFrameDataSample(dp_1, dp_2)
+            corr = correlation.Correlation(dp_1_clean, dp_2_clean, _no_background=nobg, _bin_freq=bin_f,
+                                           _bin_time=bin_t, _flatten=flatten, _bin_time_width=bin_t_w,
+                                           _flatten_window=flatten_w, _r_window=r_w)
+            corr.getPeaks()
+            result = corr.compareToTest(_test[3])
+            events[0] += len(result[0])
+            events[1] += len(result[1])
+        print("Not Found\n {}\nFalse peaks\n {}".format(events[0], events[1]))
+        # TODO prio list which stations to use
+        # TODO add all peaks from all sets - then compare
+        # TODO function to compare Eventlist with eventlist
+        # TODO bursttypes
+        # TODO burst time -> start & end
 
 
 def bacBurstFailed():
@@ -251,4 +260,34 @@ day, obs2 obs3 -> EventList
                       |
                     merge
                   compare to reference 
+"""
+
+"""
+type ii list 
+20200529	07:23
+20201016	12:59 (greenland + SWISS-Landschlacht ) 
+20201020	13:31 (greenland)
+
+"""
+"""
+type iv
+20110924 12:00 - 14:00
+20201121	11:30-    multiple type III 
+20201125	23:26     australia-assa
+20201129	12:56     unigraz - looks like type 2
+20201130	10:56-10:58	VI	BIR, SWISS-Landschlacht    weak, multiple type iii ?
+20201229	20:57      roswell - mexart
+20201230	02:35      australia india uidaipur, indonesia
+20201230	09:12      austria unigraz 
+"""
+"""
+type V < 45 MHz -> not usually measurable with chosen observatories - rare
+
+
+"""
+"""
+type i
+20201201	04:53-05:53	I	Australia-ASSA   nope
+
+
 """
