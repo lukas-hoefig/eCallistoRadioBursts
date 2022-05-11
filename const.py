@@ -9,7 +9,7 @@ path_plots = "eCallistoPlots/"
 DATA_POINTS_PER_SECOND = 4
 BIN_FACTOR = 4
 ROLL_WINDOW = 180
-
+even_time_format = "%H:%M:%S"
 plot_colors = ['blue', 'red', 'purple', 'green', 'yellow']
 
 

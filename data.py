@@ -150,13 +150,13 @@ class DataPoint:
         self.spectrum_data.freq_axis = frequency_range
         self.binned_freq = True
 
-    def binDataTime(self, width=DATA_POINTS_PER_SECOND / BIN_FACTOR, method='median'):
+    def binDataTime(self, width=BIN_FACTOR, method='median'):
         if method != 'median' and method != 'mean':
             raise Exception
         time_min = self.spectrum_data.time_axis[0]
         time_max = self.spectrum_data.time_axis[-1]
         data = self.spectrum_data.data
-        time_range = np.arange(time_min, time_max - width, width / DATA_POINTS_PER_SECOND)
+        time_range = np.arange(time_min, time_max, width / DATA_POINTS_PER_SECOND)
 
         entries_per_bin = len(self.spectrum_data.time_axis) / len(time_range)
         data_binned = [[] for i in range(len(data))]
@@ -225,6 +225,7 @@ class DataPoint:
 def createDay(_year: int, _month: int, _day: int, _observatory: observatories.Observatory,
               _spectral_range: List[int]):
     """
+    TODO - stations that measure 'at night'
     Creates a list with DataPoints for a specific day for a Observatory with a specific spectral range
 
     :param _year:
@@ -307,9 +308,9 @@ def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, axis, _plot
     else:
         data_per_second = DATA_POINTS_PER_SECOND
     time_axis_plot = []
-    for i in range(len(_time)):
+    for i in _time:
         time_axis_plot.append(
-            datetime.fromtimestamp(_time_start + i / data_per_second).strftime("%Y %m %d %H:%M:%S"))
+            datetime.fromtimestamp(_time_start + i).strftime("%Y %m %d %H:%M:%S"))
     time_axis_plot = pd.to_datetime(time_axis_plot)
     dataframe = pd.DataFrame()
     dataframe['data'] = _data
@@ -326,7 +327,9 @@ def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, axis, _plot
             if type(peaks) == str:
                 peaks = [peaks]
             for i in peaks:
-                ax.axvline(pd.to_datetime(datetime.strptime(datetime.fromtimestamp(_time_start).strftime("%Y %m %d ") + i, "%Y %m %d %H:%M:%S")), linestyle='--')
+                ax.axvline(pd.to_datetime(
+                    datetime.strptime(datetime.fromtimestamp(_time_start).strftime("%Y %m %d ") + i,
+                                      "%Y %m %d %H:%M:%S")), linestyle='--')
     else:
         dataframe = dataframe.set_index(time_axis_plot)
         plt.xticks(rotation=90)

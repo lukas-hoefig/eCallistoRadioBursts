@@ -16,7 +16,9 @@ CORRELATION_MIN = 0.70
 CORRELATION_PEAK_END = CORRELATION_MIN / 7
 DATA_POINTS_PER_SECOND = const.DATA_POINTS_PER_SECOND
 BIN_FACTOR = const.BIN_FACTOR
-
+LENGTH_TYPE_III_AVG = 200    # TODO definition type II / III
+TYPE_III = "III"
+TYPE_II = "II"
 
 # class TimeCurve:
 #     def __init__(self, _time, _data, _time_start):
@@ -45,7 +47,7 @@ class Comparison(analysis.EventList):
 class Correlation:
     def __init__(self, data_point_1: data.DataPoint, data_point_2: data.DataPoint,
                  _no_background=False, _bin_freq=False, _bin_time=False, _flatten=False,
-                 _bin_time_width=4, _flatten_window=100, _r_window=180):
+                 _bin_time_width=4, _flatten_window=100, _r_window=180, method_bin_t='median', method_bin_f='median'):
 
         self.data_point_1 = data_point_1
         self.data_point_2 = data_point_2
@@ -57,6 +59,8 @@ class Correlation:
         self.flatten_window = _flatten_window
         self.bin_time_width = _bin_time_width
         self.r_window = _r_window
+        self.method_bin_f = method_bin_f
+        self.method_bin_t = method_bin_t
 
         self.peaks = analysis.EventList([])
         self.frequency_range = None
@@ -97,7 +101,7 @@ class Correlation:
         self.data_curve = pd.Series(curve1).rolling(self.r_window).corr(pd.Series(curve2))
         self.data_curve.replace([np.inf, -np.inf], np.nan).tolist()
 
-    def getPeaks(self, _limit=CORRELATION_MIN):
+    def calculatePeaks(self, _limit=CORRELATION_MIN):
         within_burst = False
         peaks = []
         # if np.nanmax(self.data_curve) < _limit:
@@ -106,20 +110,29 @@ class Correlation:
         #     return
         for point in range(len(self.data_curve)):
             if self.data_curve[point] > _limit and not within_burst:
-                peaks.append([point, self.data_curve[point]])
+                time_start = datetime.fromtimestamp(point / self.data_per_second + self.time_start).strftime(
+                    const.even_time_format)
+                burst = analysis.Event(time_start, self.data_curve[point])
+                peaks.append(burst)
                 within_burst = True
 
             # peak or starting time ?
-            if self.data_curve[point] > _limit and within_burst and self.data_curve[point] > peaks[-1][1]:
-                peaks[-1][1] = self.data_curve[point]
+            if self.data_curve[point] > _limit and within_burst and self.data_curve[point] > peaks[-1].probability:
+                peaks[-1].probability = self.data_curve[point]
             if within_burst and self.data_curve[point] < CORRELATION_PEAK_END:
+                time_end = datetime.fromtimestamp(point / self.data_per_second + self.time_start).strftime(
+                    const.even_time_format)
+                peaks[-1].time_end = analysis.Time(time_end)
+
+                # TODO better differentiation
+                if (peaks[-1].time_end.float - peaks[-1].time_start.float) < LENGTH_TYPE_III_AVG:
+                    peaks[-1].burst_type = TYPE_III
+                else:
+                    peaks[-1].burst_type = TYPE_II
                 within_burst = False
 
         if peaks:
-            for i in peaks:
-                i[0] = datetime.fromtimestamp(i[0] / self.data_per_second + self.time_start).strftime(
-                    "%H:%M:%S")
-                self.peaks += analysis.Event(i[0], probability=i[1])
+            self.peaks = analysis.EventList(peaks)
 
     def fileName(self):
         return "{}_{}_{}_{}_{}_{}{}{}{}{}.png"\
@@ -140,7 +153,6 @@ class Correlation:
 
     def compareToTest(self, test: Comparison):
         """
-        TODO                    redo -> class EventList
         :return: [not found, false found]
         """
         peaks = copy.copy(self.peaks)
@@ -193,28 +205,14 @@ class Correlation:
 
     def modulateData(self):
         if self.bin_time:
-            self.data_point_1.binDataTime(width=self.bin_time_width)
-            self.data_point_2.binDataTime(width=self.bin_time_width)
+            self.data_point_1.binDataTime(width=self.bin_time_width, method=self.method_bin_t)
+            self.data_point_2.binDataTime(width=self.bin_time_width, method=self.method_bin_t)
         if self.bin_frequency:
-            self.data_point_1.binDataFreq()
-            self.data_point_2.binDataFreq()
+            self.data_point_1.binDataFreq(method=self.method_bin_f)
+            self.data_point_2.binDataFreq(method=self.method_bin_f)
 
 
 def setupSummedCurve(data_point, frequency_range, flatten, flatten_window):
     data_point.createSummedCurve(frequency_range)
     if flatten:
         data_point.flattenSummedCurve(flatten_window)
-
-
-##########
-def addEventsToList(to_add: List[analysis.Event], add_to: List[analysis.Event]):
-    for i in to_add:
-        if not i.inList(add_to):
-            add_to.append(i)
-
-
-def removeEventFromList(to_remove: List[analysis.Event], remove_from: List[analysis.Event]):
-    for i in to_remove:
-        if i.inList(remove_from):
-            remove_from.pop(i.inList(remove_from))
-##############

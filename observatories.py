@@ -4,6 +4,9 @@
 import numpy as np
 from typing import List
 
+observatory_dict = {}
+observatory_list = []
+
 
 class Observatory:
     """
@@ -12,13 +15,16 @@ class Observatory:
     TODO: get id
     """
 
-    def __init__(self, name: str, spectral_range: dict):
+    def __init__(self, name: str, spectral_range: dict, longitude=0):
         """
         :param name: ID of the Observatory
         :param spectral_range: dict{"ID", [spectral, range]}
         """
         self.name = name
         self.spectral_range = spectral_range
+        observatory_list.append(self.name)
+        observatory_dict[self.name] = self
+        self.longitude = longitude
 
     def __str__(self):
         return self.name
@@ -36,18 +42,20 @@ class Observatory:
         """
         return self.spectral_range[identification]
 
+    def obsTime(self):
+        return (self.longitude + 360) % 360
+
 
 class ObservatorySet:
     def __init__(self, observatories: List[Observatory]):
-        if len(observatories) != 3:
-            raise ValueError
-        self.observatory1 = observatories[0]
-        self.observatory2 = observatories[1]
-        self.observatory3 = observatories[2]
+        self.observatories = observatories
 
     def getSet(self):
-        return [self.observatory1, self.observatory2], [self.observatory1, self.observatory3], \
-               [self.observatory2, self.observatory3]
+        sets = []
+        for obs1 in range(len(self.observatories)):
+            for obs2 in range(obs1+1, len(self.observatories)):
+                sets.append([self.observatories[obs1], self.observatories[obs2]])
+        return sets
 
 
 def specID(_observatory, _spectral_range):
@@ -100,18 +108,18 @@ stat_bir = "BIR"
 spec_range_bir = {"01": [45, 81]}
 bir = Observatory(stat_bir, spec_range_bir)
 
+stat_alaska_haarp = "ALASKA-HAARP"
+spec_range_alaska_haarp = {"62": [45, 81], "63": [45, 81]}   # [10,81]
+alaska_haarp = Observatory(stat_alaska_haarp, spec_range_alaska_haarp)
 
-# ----------------------------------------------------
-"""
-TODO -> class this 
+stat_alaska_cohoe = "ALASKA-ALASKA-COHOE"
+spec_range_alaska_cohoe = {"00": [45, 81], "01": [45, 81]}   # [45,95]
+alaska_cohoe = Observatory(stat_alaska_cohoe, spec_range_alaska_cohoe)
 
-"""
-observatory_dict = {stat_uni_graz: uni_graz, stat_triest: triest, stat_oe3flb: oe3flb,
-                    stat_swiss_heiterswil: swiss_heiterswil, stat_swiss_hb9sct: swiss_hb9sct, stat_austria: austria,
-                    stat_swiss_landschlacht: swiss_landschlacht, stat_bir: bir,
-                    stat_swiss_heiterswil_old: spec_range_swiss_heiterswil_old}
-observatory_list = [stat_uni_graz, stat_triest, stat_oe3flb, stat_swiss_heiterswil, stat_swiss_hb9sct, stat_austria,
-                    stat_swiss_landschlacht, stat_bir, stat_swiss_heiterswil_old]
+stat_roswell = "ROSWELL-NM"
+spec_range_roswell = {"57": [200, 400], "58": [45, 81], "59": [200, 500]}   # [20,80]
+roswell = Observatory(stat_roswell, spec_range_roswell)
+
 
 # TODO:
 """

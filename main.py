@@ -3,6 +3,7 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
+import copy
 
 import const
 import data
@@ -52,7 +53,7 @@ def testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w):
                  [2021, 4, 24, correlation.Comparison(["10:23:00"])],
                  [2021, 4, 26, correlation.Comparison(["13:56:00"])]]
     observatory = [observatories.uni_graz, observatories.triest, observatories.swiss_landschlacht, observatories.oe3flb,
-                   observatories.austria]
+                   observatories.austria, observatories.bir, observatories.swiss_hb9sct]
 
     print("------------------------------------------------"
           "\nNew try: {}{}{}{}{}\n------------------------------------------------"
@@ -63,7 +64,7 @@ def testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w):
                   "r_window:{}".format(r_w)))
 
     for _test in reference:
-        events = np.array([0, 0])
+        events = analysis.EventList([])
         year = _test[0]
         month = _test[1]
         day = _test[2]
@@ -81,14 +82,17 @@ def testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w):
             corr = correlation.Correlation(dp_1_clean, dp_2_clean, _no_background=nobg, _bin_freq=bin_f,
                                            _bin_time=bin_t, _flatten=flatten, _bin_time_width=bin_t_w,
                                            _flatten_window=flatten_w, _r_window=r_w)
-            corr.getPeaks()
-            result = corr.compareToTest(_test[3])
-            events[0] += len(result[0])
-            events[1] += len(result[1])
-        print("Not Found\n {}\nFalse peaks\n {}".format(events[0], events[1]))
+            corr.calculatePeaks()
+            events += corr.peaks
+            # TODO adding -> take highest correlation
+
+        total = len(events)
+        failed_events = copy.copy(_test[3]) - copy.copy(events)
+        false_positives = copy.copy(events) - copy.copy(_test[3])
+        print("Total Peaks found: {}\nNot Found\n {}: {}\nFalse peaks\n {} : {}".format(total,
+                                                                                        len(failed_events), failed_events,
+                                                                                        len(false_positives), false_positives))
         # TODO prio list which stations to use
-        # TODO add all peaks from all sets - then compare
-        # TODO function to compare Eventlist with eventlist
         # TODO bursttypes
         # TODO burst time -> start & end
 
@@ -135,7 +139,7 @@ def bacBurstFailed():
         dp1 = data.createFromTime(i[0], i[1], i[2], i[3], obs[0], spec_range)
         dp2 = data.createFromTime(i[0], i[1], i[2], i[3], obs[1], spec_range)
         corr = correlation.Correlation(dp1, dp2, False, False, True, True, 16, 500, 180)
-        corr.getPeaks()
+        corr.calculatePeaks()
         corr.plotCurve(ax, i[3])
         corr.compareToTest(correlation.Comparison([i[3]]))
 
@@ -291,3 +295,29 @@ type i
 
 
 """
+
+year = 2014
+month = 1
+day = 1
+file = "../reference/{}_events/{}{}{}events.txt".format(str(year), str(year), str(month).zfill(2), str(day).zfill(2))
+f = open(file)
+lines = f.readlines()
+f.close()
+lines = lines[12:]
+
+for line in lines:
+    if line == '\n':
+        lines.remove(line)
+
+for line in range(len(lines)):
+    lines[line] = lines[line].rsplit(' ')
+    lines[line] = list(filter(None, lines[line]))
+    try:
+        lines[line].remove('+')
+    except ValueError:
+        pass
+
+lines = list(filter(lambda line: line[6] == 'RSP', lines))
+
+for line in lines:
+    print("{:5s}: {:} - {:}".format(line[8].rsplit('/')[0], line[1], line[3]))

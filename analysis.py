@@ -329,29 +329,31 @@ class Time:
 
 class Event:
     """
-    TODO: start , end, type
     """
-    def __init__(self, time, probability=1):
-        self.time = Time(time)
+    def __init__(self, start_time, probability=1):
+        self.time_start = Time(start_time)
+        self.time_end = Time(start_time)
+        self.burst_type = "???"
         self.probability = probability
 
     def __str__(self):
-        return str([self.time, self.probability])
+        return str([self.burst_type, self.time_start, self.time_end, self.probability])
 
     def __repr__(self):
         return self.__str__()
 
+    def compare(self, other):
+        return min(abs(self.time_end.float - other.time_start.float),
+                   abs(self.time_start.float - other.time_end.float)) < TIME_TOLERANCE
+
     def __eq__(self, other):
-        return self.time == other.time
+        return self.compare(other)
 
     def __add__(self, other):
         return EventList([self, other])
 
     def __iadd__(self, other):
         return self.__add__(other)
-
-    def compare(self, other):
-        return abs(self.time.float - other.time.float) < TIME_TOLERANCE
 
     def inList(self, _list):
         for i in range(len(_list)):
@@ -377,11 +379,11 @@ class EventList:
     def __bool__(self):
         return bool(len(self.events))
 
-    def __add__(self, other):
+    def __add__(self, other):          # TODO this shouldn't modify self nor other
         if isinstance(other, Event):
             return self.__radd__(other)
         for i in other.events:
-            if not i.inList(self.events):
+            if not i.inList(self.events):        # TODO take highest probability
                 self.events.append(i)
         return self
 
@@ -402,6 +404,7 @@ class EventList:
 
     def __rsub__(self, other):
         if not isinstance(other, Event):
+            print(type(other), other)
             raise TypeError
         if other.inList(self.events):
             self.events.remove(other)
@@ -418,12 +421,7 @@ class EventList:
         return self.__sub__(other)
 
     def __repr__(self):
-        _str = "["
-        for i in self.events:
-            _str += str(i) + ", "
-        _str = _str.rstrip(", ")
-        _str += "]"
-        return _str
+        return str(self.events)
 
     def __str__(self):
         return self.__repr__()
