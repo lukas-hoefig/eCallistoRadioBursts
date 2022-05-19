@@ -6,8 +6,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import copy
-from datetime import datetime
-import time
+from datetime import datetime, timedelta
 import os
 from typing import List
 
@@ -47,7 +46,7 @@ class DataPoint:
         self.file_name = reader
         reader = reader.rsplit('_')
 
-        self.observatory = observatories.observatory_dict[reader[0]]
+        self.observatory = observatories.getObservatory(reader[0])
         self.year = int(reader[1][:4])
         self.month = int(reader[1][4:6])
         self.day = int(reader[1][6:])
@@ -221,11 +220,16 @@ class DataPoint:
                     ["", "_bintime_{}".format(self.binned_time_width)][self.binned_time],
                     ["", "_flatten_{}".format(self.flattened_window)][self.flattened])
 
+    def dateTime(self):
+        return datetime(year=self.year, month=self.month, day=self.day,
+                        hour=self.hour, minute=self.minute, second=self.second)
+
 
 def createDay(_year: int, _month: int, _day: int, _observatory: observatories.Observatory,
-              _spectral_range: List[int]):
+              _spectral_range: List[int]) -> List[DataPoint]:
     """
     TODO - stations that measure 'at night'
+    TODO - spectral range as str:id
     Creates a list with DataPoints for a specific day for a Observatory with a specific spectral range
 
     :param _year:
@@ -273,28 +277,31 @@ def createFromTime(_year, _month, _day, _time, _observatory, _spectral_range):
     return DataPoint(file_)
 
 
-def fitTimeFrameDataSample(_data_point1: List[DataPoint], _data_point2: List[DataPoint]):
+def fitTimeFrameDataSample(_data_point1, _data_point2):
     """
     shortens the list of DataPoints of different timeframe to a single biggest possible timeframe
 
     TODO: where data is cut, and why
 
-    TODO: throw - no overlap
+    TODO: throw - no overlap -> return None maybe
 
     :param _data_point1: List[DataPoints]
     :param _data_point2: List[DataPoints]
     :return: DataPoint(timeframe), DataPoint(timeframe)
     """
-    while _data_point1[0].hour + _data_point1[0].minute / 60 != _data_point2[0].hour + _data_point2[0].minute / 60:
-        if _data_point1[0].hour + _data_point1[0].minute / 60 < _data_point2[0].hour + _data_point2[0].minute / 60:
+
+    while abs((_data_point1[0].dateTime() - _data_point2[0].dateTime()).total_seconds()) >=\
+            timedelta(minutes=15).total_seconds():
+        if (_data_point1[0].dateTime() - _data_point2[0].dateTime()).total_seconds() < 0:
             _data_point1.pop(0)
         else:
             _data_point2.pop(0)
-    while _data_point1[-1].hour + _data_point1[-1].minute / 60 != _data_point2[-1].hour + _data_point2[-1].minute / 60:
-        if _data_point1[-1].hour + _data_point1[-1].minute / 60 < _data_point2[-1].hour + _data_point2[-1].minute / 60:
-            _data_point2.pop(-1)
-        else:
+    while abs((_data_point1[-1].dateTime() - _data_point2[-1].dateTime()).total_seconds()) >= \
+            timedelta(minutes=15).total_seconds():
+        if (_data_point1[-1].dateTime() - _data_point2[-1].dateTime()).total_seconds() > 0:
             _data_point1.pop(-1)
+        else:
+            _data_point2.pop(-1)
 
     data_merged1 = sum(_data_point1)
     data_merged2 = sum(_data_point2)

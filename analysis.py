@@ -316,6 +316,9 @@ def plotDataTime(_time: List[float], _data: List[float], _time_start: float,
 
 
 class Time:
+    """
+    TODO: days (alaska australia etc)
+    """
     def __init__(self, time):
         self.h, self.m, self.s = time.rsplit(':')
         self.float = int(self.h) * 3600 + int(self.m) * 60 + int(self.s)
