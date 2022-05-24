@@ -5,12 +5,12 @@ import copy
 import numpy as np
 import pandas as pd
 from datetime import datetime
+from typing import List, Union
 
 import analysis
 import data
 import observatories
 import const
-from typing import List, Union
 
 CORRELATION_MIN = 0.70
 CORRELATION_PEAK_END = CORRELATION_MIN / 7
@@ -18,7 +18,8 @@ DATA_POINTS_PER_SECOND = const.DATA_POINTS_PER_SECOND
 BIN_FACTOR = const.BIN_FACTOR
 LENGTH_TYPE_III_AVG = 200    # TODO definition type II / III -> const
 TYPE_III = "III"
-TYPE_II = "II"
+TYPE_II = " II"
+TYPE_IV = " IV"
 
 # class TimeCurve:
 #     def __init__(self, _time, _data, _time_start):
@@ -35,13 +36,6 @@ TYPE_II = "II"
 #     def __init__(self):
 #         super().__init__()
 #         raise NotImplementedError
-
-class Comparison(analysis.EventList):
-    def __init__(self, events: Union[str, List[str]]):
-        if isinstance(events, str):
-            events = [events]
-        _events = [analysis.Event(event) for event in events]
-        super().__init__(_events)
 
 
 class Correlation:
@@ -112,7 +106,7 @@ class Correlation:
             if self.data_curve[point] > _limit and not within_burst:
                 time_start = datetime.fromtimestamp(point / self.data_per_second + self.time_start).strftime(
                     const.even_time_format)
-                burst = analysis.Event(time_start, self.data_curve[point])
+                burst = analysis.Event(time_start, self.data_curve[point])   # TODO
                 peaks.append(burst)
                 within_burst = True
 
@@ -122,7 +116,7 @@ class Correlation:
             if within_burst and self.data_curve[point] < CORRELATION_PEAK_END:
                 time_end = datetime.fromtimestamp(point / self.data_per_second + self.time_start).strftime(
                     const.even_time_format)
-                peaks[-1].time_end = analysis.Time(time_end)
+                peaks[-1].time_end = analysis.Time(time_end)   # TODO
 
                 # TODO better differentiation
                 if (peaks[-1].time_end.float - peaks[-1].time_start.float) < LENGTH_TYPE_III_AVG:
@@ -151,7 +145,7 @@ class Correlation:
         for i in self.peaks:
             print(i)
 
-    def compareToTest(self, test: Comparison):
+    def compareToTest(self, test: analysis.EventList):
         """
         :return: [not found, false found]
         """

@@ -277,6 +277,63 @@ def createFromTime(_year, _month, _day, _time, _observatory, _spectral_range):
     return DataPoint(file_)
 
 
+def frqProfile(_list: List[DataPoint]):
+    """
+    most frequent freq id of a list of datapoints
+    """
+    fa = [i.spectrum_data.header["FRQFILE"] for i in _list]
+    fsets = set(fa)
+    count = [fa.count(i) for i in fsets]
+    return list(fsets)[count.index(max(count))]
+
+
+def cutFreqProfile(day: List[DataPoint], frq_profile):
+    return [i for i in day if (i.spectrum_data.header["FRQFILE"] == frq_profile)]
+
+
+def cutDayBefore(day: List[DataPoint], hour_limit: datetime):
+    return [i for i in day if (i.hour >= hour_limit.hour)]
+
+
+def cutDayAfter(day: List[DataPoint], hour_limit: datetime):
+    return [i for i in day if (i.hour <= hour_limit.hour)]
+
+
+def listDataPointDay(year, month, day, observatory: observatories.Observatory, spectral_range):
+    date = datetime(year=year, month=month, day=day, hour=int(observatory.obsTime()))
+    date_ahead = date - timedelta(days=1)
+    date_behind = date + timedelta(days=1)
+    midnight = date + timedelta(hours=12)
+
+    download.downloadFullDay(date.year, date.month, date.day , [observatory])
+    download.downloadFullDay(date_ahead.year, date_ahead.month, date_ahead.day , [observatory])
+    download.downloadFullDay(date_behind.year, date_behind.month, date_behind.day , [observatory])
+
+    day_list = createDay(date.year, date.month, date.day, observatory, spectral_range)
+    date_ahead_list = createDay(date_ahead.year, date_ahead.month, date_ahead.day, observatory, spectral_range)
+    date_behind_list = createDay(date_behind.year, date_behind.month, date_behind.day, observatory, spectral_range)
+
+    date_ahead_relevant = cutDayBefore(date_ahead_list, midnight)
+    date_behind_relevant = cutDayAfter(date_behind_list, midnight)
+
+    if date_ahead_relevant and date_behind_relevant:
+        date_ahead_relevant.extend(cutDayAfter(day_list, midnight))
+        day_list = cutDayBefore(day_list, midnight)
+        day_list.extend(date_behind_relevant)
+
+        frq_profile_1st = frqProfile(date_ahead_list)
+        frq_profile_2nd = frqProfile(day_list)
+        date_ahead_relevant = cutFreqProfile(date_ahead_relevant, frq_profile_1st)
+        day_list = cutFreqProfile(day_list, frq_profile_2nd)
+
+        date_ahead_relevant = date_ahead_relevant
+        return [date_ahead_relevant, day_list]
+
+    frq_profile = frqProfile(day_list)
+    day_list = cutFreqProfile(day_list, frq_profile)
+    return [day_list]
+
+
 def fitTimeFrameDataSample(_data_point1, _data_point2):
     """
     shortens the list of DataPoints of different timeframe to a single biggest possible timeframe

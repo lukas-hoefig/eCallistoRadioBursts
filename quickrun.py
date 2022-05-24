@@ -9,6 +9,11 @@ import download
 import analysis
 import correlation
 
+from datetime import datetime
+
+
+
+"""
 o_unigraz = observatories.uni_graz
 spec_range = [45, 81]
 
@@ -70,4 +75,4 @@ fig, ax = plt.subplots(figsize=(16,9))
 c.plotCurve(ax)
 plt.show()
 
-
+"""

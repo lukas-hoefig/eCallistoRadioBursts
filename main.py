@@ -295,29 +295,3 @@ type i
 
 
 """
-
-year = 2014
-month = 1
-day = 1
-file = "../reference/{}_events/{}{}{}events.txt".format(str(year), str(year), str(month).zfill(2), str(day).zfill(2))
-f = open(file)
-lines = f.readlines()
-f.close()
-lines = lines[12:]
-
-for line in lines:
-    if line == '\n':
-        lines.remove(line)
-
-for line in range(len(lines)):
-    lines[line] = lines[line].rsplit(' ')
-    lines[line] = list(filter(None, lines[line]))
-    try:
-        lines[line].remove('+')
-    except ValueError:
-        pass
-
-lines = list(filter(lambda line: line[6] == 'RSP', lines))
-
-for line in lines:
-    print("{:5s}: {:} - {:}".format(line[8].rsplit('/')[0], line[1], line[3]))
