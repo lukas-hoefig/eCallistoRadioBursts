@@ -17,7 +17,8 @@ date_format = "%Y %m %d %H %M %S"
 file_log = ".datalog"
 
 
-def downloadFullDay(_year: int, _month: int, _day: int, _observatories: Union[List[str], List[obs.Observatory]]):
+def downloadFullDay(_year: int, _month: int, _day: int,
+                    _observatories: Union[str, obs.Observatory, List[str], List[obs.Observatory]]):
     """
     downloads all available files of a day for all instruments defined in eCallistoData.py
     files will be located in
@@ -32,7 +33,7 @@ def downloadFullDay(_year: int, _month: int, _day: int, _observatories: Union[Li
     if type(_observatories) == str or type(_observatories) == obs.Observatory:
         _observatories = [_observatories]
     for i in range(len(_observatories)):
-        if type(_observatories[i]) == obs.Observatory:
+        if isinstance(_observatories[i], obs.Observatory):
             _observatories[i] = _observatories[i].name
 
     download_path = const.pathDataDay(_year, _month, _day)
@@ -70,8 +71,6 @@ def createLog(_year: int, _month: int, _day: int, _observatories: List[str], _ov
     """
     writes/appends a log file with the names of observatories for which data is available for a specified day
 
-    TODO: don't create file if day == today
-
     :param _year:
     :param _month:
     :param _day:
@@ -79,6 +78,9 @@ def createLog(_year: int, _month: int, _day: int, _observatories: List[str], _ov
     :param _overwrite: True:new log file, False:append log file
     """
     if not len(_observatories):
+        return
+    today = dt.now()
+    if today.year == _year and today.month == _month and today.day == _day:
         return
 
     path_log = const.pathDataDay(_year, _month, _day)

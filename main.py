@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import datetime
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,6 +12,7 @@ import observatories
 import download
 import analysis
 import correlation
+import reference
 
 
 def missingThings():
@@ -32,6 +34,7 @@ spec_range = [45, 81]
 
 
 def testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w):
+
     reference = [[2017, 4, 18, correlation.Comparison(["09:36:00", "09:43:42"])],
                  [2017, 6, 1, correlation.Comparison(["11:34:00"])],
                  [2017, 7, 11, correlation.Comparison(["13:20:00"])],
@@ -52,6 +55,7 @@ def testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w):
                  [2020, 12, 30, correlation.Comparison(["14:26:00"])],
                  [2021, 4, 24, correlation.Comparison(["10:23:00"])],
                  [2021, 4, 26, correlation.Comparison(["13:56:00"])]]
+
     observatory = [observatories.uni_graz, observatories.triest, observatories.swiss_landschlacht, observatories.oe3flb,
                    observatories.austria, observatories.bir, observatories.swiss_hb9sct]
 
@@ -84,7 +88,6 @@ def testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w):
                                            _flatten_window=flatten_w, _r_window=r_w)
             corr.calculatePeaks()
             events += corr.peaks
-            # TODO adding -> take highest correlation
 
         total = len(events)
         failed_events = copy.copy(_test[3]) - copy.copy(events)
@@ -92,64 +95,77 @@ def testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w):
         print("Total Peaks found: {}\nNot Found\n {}: {}\nFalse peaks\n {} : {}".format(total,
                                                                                         len(failed_events), failed_events,
                                                                                         len(false_positives), false_positives))
-        # TODO prio list which stations to use
-        # TODO bursttypes
-        # TODO burst time -> start & end
 
 
-def bacBurstFailed():
-    failed = [[2017, 6, 1, correlation.Comparison(["11:34:00"])],
-              [2017, 7, 11, correlation.Comparison(["13:20:00"])],
-              [2017, 9, 7, correlation.Comparison(["09:53:00"])],
-              [2017, 9, 7, correlation.Comparison(["10:15:00"])],
-              [2017, 9, 7, correlation.Comparison(["12:55:00"])],
-              [2017, 9, 8, correlation.Comparison(["15:37:00"])],
-              [2017, 9, 9, correlation.Comparison(["11:17:00"])],
-              [2017, 9, 9, correlation.Comparison(["11:44:00"])],
-              [2017, 9, 27, correlation.Comparison(["12:10:00"])],
-              [2020, 3, 8, correlation.Comparison(["15:33:00"])],
-              [2020, 3, 8, correlation.Comparison(["15:36:00"])],
-              [2020, 11, 20, correlation.Comparison(["13:28:00"])],
-              [2020, 11, 22, correlation.Comparison(["14:17:00"])],
-              [2020, 12, 27, correlation.Comparison(["11:37:00"])],
-              [2020, 12, 27, correlation.Comparison(["12:35:00"])],
-              [2020, 12, 30, correlation.Comparison(["14:26:00"])],
-              [2021, 4, 26, correlation.Comparison(["13:56:00"])]]
-    obs = [observatories.uni_graz, observatories.austria, observatories.triest]
+def testRun(_year, _month, _day, _days, spec_range=None,
+            nobg=False, bin_f=False, bin_t=False, flatten=False, bin_t_w=4, flatten_w=400, r_w=180):
 
-    fig, ax = plt.subplots(figsize=(16, 9))
+    if spec_range is None:
+        spec_range = [45, 81]
+    date_start = datetime.datetime(year=_year, month=_month, day=_day)
+    time_step = datetime.timedelta(days=1)
+    number_days = _days
 
-    for o in obs:
-        for i in failed:
-            time = i[3].events[0].time
-            download.downloadFullDay(i[0], i[1], i[2], o.name)
-            dp = data.createFromTime(i[0], i[1], i[2], time, o, spec_range)
-            dp.createSummedCurve(spec_range)
-            dp.flattenSummedCurve(const.ROLL_WINDOW)
-            dp.plotSummedCurve(ax, peaks=i[3])
+    observatory = [observatories.uni_graz, observatories.triest, observatories.swiss_landschlacht, observatories.oe3flb,
+                   observatories.alaska_haarp, observatories.alaska_cohoe, observatories.roswell, observatories.bir,
+                   observatories.indonesia, observatories.assa, observatories.swiss_muhen, observatories.swiss_hb9sct,
+                   observatories.egypt_alexandria, observatories.arecibo]
 
-    plt.tight_layout()
-    plt.show()
+    for i in range(number_days):
+        date = date_start + time_step * i
+        year = date.year
+        month = date.month
+        day = date.day
+        download.downloadFullDay(year, month, day, observatory)
+        stations = download.observatoriesAvailable(year, month, day)[1]
+        sets = []
+        for j in stations:
+            sets.extend(data.listDataPointDay(year, month, day, j, spec_range))
+        events = analysis.EventList([])
+        for set1 in range(len(sets) - 1):
+            for set2 in range(set1 + 1, len(sets)):
+                data1_raw = copy.deepcopy(sets[set1])
+                data2_raw = copy.deepcopy(sets[set2])
+                data1, data2 = data.fitTimeFrameDataSample(data1_raw, data2_raw)
+                if data1 and data2:
+                    corr = correlation.Correlation(data1, data2, day, _no_background=nobg, _bin_freq=bin_f,
+                                                   _bin_time=bin_t, _flatten=flatten, _bin_time_width=bin_t_w,
+                                                   _flatten_window=flatten_w, _r_window=r_w)
+                    corr.calculatePeaks()
+                    events += corr.peaks
+                else:
+                    pass
+        events.sort()
 
-    fig, ax = plt.subplots(figsize=(16, 9))
-
-    for i in failed:
-        download.downloadFullDay(i[0], i[1], i[2], obs[0].name)
-        download.downloadFullDay(i[0], i[1], i[2], obs[1].name)
-        dp1 = data.createFromTime(i[0], i[1], i[2], i[3], obs[0], spec_range)
-        dp2 = data.createFromTime(i[0], i[1], i[2], i[3], obs[1], spec_range)
-        corr = correlation.Correlation(dp1, dp2, False, False, True, True, 16, 500, 180)
-        corr.calculatePeaks()
-        corr.plotCurve(ax, i[3])
-        corr.compareToTest(correlation.Comparison([i[3]]))
-
-    plt.tight_layout()
-    plt.show()
-
-
-# TODO test difficult days with others stations -> improvement?
+        print(f"\n {date.year} {date.month} {date.day}")
+        print("mine")
+        print(events)
+        print("reference SWPC")
+        print(reference.referenceSWPC(year, month, day))
+        print("reference Monstein")
+        print(reference.referenceMonstein(year, month, day))
+        print("reference Monstein with 2 or more stations")
+        print(reference.referenceMonstein2orMore(year, month, day))
 
 
+if __name__ == '__main__':
+    testRun(2022, 1, 1, 1, nobg=False, bin_f=False, bin_t=False, flatten=False, bin_t_w=4, flatten_w=400, r_w=180)
+    # flatten = True
+    # flatten_w = 220
+    # bin_f = False
+    # nobg = True
+    # bin_t = False
+    # bin_t_w = 4
+    # for r_w in range(180, 260, 10):
+    #     testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
+
+
+# TODO 20.01. bug 9:18
+# 16.01. 9:09 bug (flatten)  - 20.01. 9:01
+# TODO CTM's -> destroy everything
+
+# 31.01 18:11 why?
+"""
 if __name__ == '__main__':
     # bacBurstFailed()
 
@@ -190,7 +206,7 @@ if __name__ == '__main__':
     for r_w in range(180, 260, 10):
         testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
 
-"""
+
 
 
    andere ecallisto auswertungen -> type 3
@@ -206,37 +222,6 @@ if __name__ == '__main__':
    
 """
 
-hard_reference = [[2017, 6, 1, correlation.Comparison(["11:34:00"])],
-                  [2017, 7, 11, correlation.Comparison(["13:20:00"])],
-                  [2017, 9, 7, correlation.Comparison(["09:53:00", "10:15:00", "12:55:00"])],
-                  [2017, 9, 8, correlation.Comparison(["07:06:00", "09:20:00", "10:47:00", "10:54:00",
-                                                       "13:22:00", "14:01:00", "15:37:00"])],
-                  [2017, 9, 9, correlation.Comparison(["11:17:00", "11:44:00"])],
-                  [2017, 9, 27, correlation.Comparison(["12:10:00"])],
-                  [2020, 3, 8, correlation.Comparison(["15:33:00", "15:36:00"])],
-                  [2020, 11, 20, correlation.Comparison(["13:28:00"])],
-                  [2020, 11, 22, correlation.Comparison(["11:00:00", "11:08:00", "14:17:00"])],
-                  [2020, 12, 27, correlation.Comparison(["11:37:00", "12:35:00"])],
-                  [2020, 12, 30, correlation.Comparison(["14:26:00"])],
-                  [2021, 4, 26, correlation.Comparison(["13:56:00"])]]
-
-failed = [[2017, 6, 1, correlation.Comparison(["11:34:00"])],
-          [2017, 7, 11, correlation.Comparison(["13:20:00"])],
-          [2017, 9, 7, correlation.Comparison(["09:53:00"])],
-          [2017, 9, 7, correlation.Comparison(["10:15:00"])],
-          [2017, 9, 7, correlation.Comparison(["12:55:00"])],
-          [2017, 9, 8, correlation.Comparison(["15:37:00"])],
-          [2017, 9, 9, correlation.Comparison(["11:17:00"])],
-          [2017, 9, 9, correlation.Comparison(["11:44:00"])],
-          [2017, 9, 27, correlation.Comparison(["12:10:00"])],
-          [2020, 3, 8, correlation.Comparison(["15:33:00"])],
-          [2020, 3, 8, correlation.Comparison(["15:36:00"])],
-          [2020, 11, 20, correlation.Comparison(["13:28:00"])],
-          [2020, 11, 22, correlation.Comparison(["14:17:00"])],
-          [2020, 12, 27, correlation.Comparison(["11:37:00"])],
-          [2020, 12, 27, correlation.Comparison(["12:35:00"])],
-          [2020, 12, 30, correlation.Comparison(["14:26:00"])],
-          [2021, 4, 26, correlation.Comparison(["13:56:00"])]]
 
 # TODO:
 """

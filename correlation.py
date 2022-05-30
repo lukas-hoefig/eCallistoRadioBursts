@@ -4,7 +4,7 @@
 import copy
 import numpy as np
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Union
 
 import analysis
@@ -12,39 +12,25 @@ import data
 import observatories
 import const
 
-CORRELATION_MIN = 0.70
+CORRELATION_MIN = 0.8
 CORRELATION_PEAK_END = CORRELATION_MIN / 7
 DATA_POINTS_PER_SECOND = const.DATA_POINTS_PER_SECOND
 BIN_FACTOR = const.BIN_FACTOR
-LENGTH_TYPE_III_AVG = 200    # TODO definition type II / III -> const
+LENGTH_TYPE_III_AVG = 120    # TODO definition type II / III -> const | * 4 for seconds ?
 TYPE_III = "III"
 TYPE_II = " II"
 TYPE_IV = " IV"
 
-# class TimeCurve:
-#     def __init__(self, _time, _data, _time_start):
-#         raise NotImplementedError
-#
-#     def plot(self):
-#         raise NotImplementedError
-#
-#     def getPeaks(self):
-#         raise NotImplementedError
-#
-#
-# class SummedCurve(TimeCurve):
-#     def __init__(self):
-#         super().__init__()
-#         raise NotImplementedError
-
 
 class Correlation:
-    def __init__(self, data_point_1: data.DataPoint, data_point_2: data.DataPoint,
+    def __init__(self, data_point_1: data.DataPoint, data_point_2: data.DataPoint, day: int,
                  _no_background=False, _bin_freq=False, _bin_time=False, _flatten=False,
                  _bin_time_width=4, _flatten_window=100, _r_window=180, method_bin_t='median', method_bin_f='median'):
 
         self.data_point_1 = data_point_1
         self.data_point_2 = data_point_2
+
+        self.day = day
 
         self.no_background = _no_background
         self.bin_frequency = _bin_freq
@@ -98,34 +84,39 @@ class Correlation:
     def calculatePeaks(self, _limit=CORRELATION_MIN):
         within_burst = False
         peaks = []
-        # if np.nanmax(self.data_curve) < _limit:
-        #     print("No Bursts {}  {} \n".format(self.data_point_1.observatory.name,
-        #                                        self.data_point_2.observatory.name))
-        #     return
+        if self.data_point_1.observatory == self.data_point_2:
+            return
         for point in range(len(self.data_curve)):
             if self.data_curve[point] > _limit and not within_burst:
-                time_start = datetime.fromtimestamp(point / self.data_per_second + self.time_start).strftime(
-                    const.even_time_format)
-                burst = analysis.Event(time_start, self.data_curve[point])   # TODO
-                peaks.append(burst)
-                within_burst = True
+                time_start = datetime.fromtimestamp(point / self.data_per_second + self.time_start)
+                burst = analysis.Event(time_start, probability=self.data_curve[point], stations=[self.data_point_1.observatory, self.data_point_2.observatory])
+                if burst.time_start.day == self.day:
+                    peaks.append(burst)
+                    within_burst = True
 
-            # peak or starting time ?
             if self.data_curve[point] > _limit and within_burst and self.data_curve[point] > peaks[-1].probability:
                 peaks[-1].probability = self.data_curve[point]
             if within_burst and self.data_curve[point] < CORRELATION_PEAK_END:
-                time_end = datetime.fromtimestamp(point / self.data_per_second + self.time_start).strftime(
-                    const.even_time_format)
-                peaks[-1].time_end = analysis.Time(time_end)   # TODO
+                time_end = datetime.fromtimestamp(point / self.data_per_second + self.time_start)
+                peaks[-1].setTimeEnd(time_end)
 
                 # TODO better differentiation
-                if (peaks[-1].time_end.float - peaks[-1].time_start.float) < LENGTH_TYPE_III_AVG:
+                if (peaks[-1].time_end - peaks[-1].time_start).total_seconds() <\
+                        timedelta(seconds=LENGTH_TYPE_III_AVG).total_seconds():
                     peaks[-1].burst_type = TYPE_III
                 else:
                     peaks[-1].burst_type = TYPE_II
                 within_burst = False
 
         if peaks:
+            if peaks[-1].burst_type == analysis.BURST_TYPE_UNKNOWN:  # TODO
+                if peaks[-1].probability == np.around(1, 3):
+                    peaks.pop(-1)
+                else:
+                    peaks[-1].burst_type = TYPE_III
+            for peak in peaks:
+                if np.isinf(peak.probability):
+                    peaks.remove(peak)
             self.peaks = analysis.EventList(peaks)
 
     def fileName(self):

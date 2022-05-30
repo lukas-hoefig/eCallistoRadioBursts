@@ -12,8 +12,6 @@ import correlation
 from datetime import datetime
 
 
-
-"""
 o_unigraz = observatories.uni_graz
 spec_range = [45, 81]
 
@@ -40,10 +38,10 @@ def time2(time):
     final_time_str = final_time.strftime('%H:%M:%S')
     return final_time_str
 
-year = 2017
-month = 9
-day = 6
-time = "12:19:00"
+year = 2022
+month = 1
+day = 7
+time = "12:11:00"
 time_2 = time2(time)
 
 plotPoint2(year, month, day, time)
@@ -74,5 +72,3 @@ c.printResult()
 fig, ax = plt.subplots(figsize=(16,9))
 c.plotCurve(ax)
 plt.show()
-
-"""

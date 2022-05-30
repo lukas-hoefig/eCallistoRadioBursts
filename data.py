@@ -8,15 +8,16 @@ import matplotlib.pyplot as plt
 import copy
 from datetime import datetime, timedelta
 import os
-from typing import List
+from astropy.io import fits
+from typing import List, Union
 
-# import analysis
 import const
 import observatories
 import download
 
 path_script = const.path_script
 path_data = const.path_data
+file_ending = ".fit.gz"
 FREQ_MIN = 0
 FREQ_MAX = 1
 BIN_WIDTH_FREQUENCY = 2
@@ -29,7 +30,6 @@ class DataPoint:
     """
     TODO: shift data by time interval
     """
-    file_ending = ".fit.gz"
 
     def __init__(self, file: str):
         self.spectrum_data = None
@@ -56,6 +56,8 @@ class DataPoint:
 
         self.spectral_range_id = reader[3][:2]
         self.spectral_range = self.observatory.getSpectralRange(self.spectral_range_id)
+        if self.spectral_range is None:
+            raise ValueError("File has unknown/invalid Value for Spectral Range ID / FocusCode")
 
         self.path = path_data + str(self.year) + "/" + str(self.month).zfill(2) + "/" + str(self.day).zfill(2) + "/"
 
@@ -102,8 +104,33 @@ class DataPoint:
             if self.observatory.name not in stations:
                 download.downloadFullDay(self.year, self.month, self.day, [self.observatory.name])
 
-        self.spectrum_data = CallistoSpectrogram.read(self.path + self.file_name)
+        file = self.path + self.file_name
+
+        if self.hour == 23 and self.minute > 30:
+            self.spectrum_data = self.readFalseDateFile()
+        else:
+            self.spectrum_data = CallistoSpectrogram.read(file)
+
         self.number_values = len(self.spectrum_data.time_axis)
+
+    def readFalseDateFile(self):
+        file_open = fits.open(self.path + self.file_name)
+        file_copy = copy.deepcopy(file_open)
+        file_open.close()
+        date_end = file_open[0].header['DATE-END']
+        time_end = file_open[0].header['TIME-END']
+        if int(time_end[:2]) == 24:
+            time_end_proper = '00' + time_end[2:]
+            date_end_proper = datetime(int(date_end[:4]), int(date_end[5:7]), int(date_end[8:10]))
+            date_end_proper = date_end_proper + timedelta(days=1)
+            date_end_proper_str = date_end_proper.strftime("%Y/%m/%d")
+        else:
+            return CallistoSpectrogram.read(self.path + self.file_name)
+
+        file_copy[0].header['DATE-END'] = date_end_proper_str
+        file_copy[0].header['TIME-END'] = time_end_proper
+        file_copy.writeto(self.path + self.file_name, overwrite=True)
+        return CallistoSpectrogram.read(self.path + self.file_name)
 
     def cleanUpData(self):
         """
@@ -225,11 +252,20 @@ class DataPoint:
                         hour=self.hour, minute=self.minute, second=self.second)
 
 
+def getSpectralID(_year, _month, _day, _observatory, _spectral_range) -> str:
+    spec_ids = observatories.specIDs(_observatory, _spectral_range)
+
+    path = const.pathDataDay(_year, _month, _day)
+    files = os.listdir(path)
+    for i in spec_ids:
+        if any(file.startswith(_observatory.name) and file.endswith(i + file_ending) for file in files):
+            return i
+    raise ValueError("no valid ID found")
+
+
 def createDay(_year: int, _month: int, _day: int, _observatory: observatories.Observatory,
-              _spectral_range: List[int]) -> List[DataPoint]:
+              _spectral_range: Union[str, List[int]]) -> List[DataPoint]:
     """
-    TODO - stations that measure 'at night'
-    TODO - spectral range as str:id
     Creates a list with DataPoints for a specific day for a Observatory with a specific spectral range
 
     :param _year:
@@ -239,30 +275,47 @@ def createDay(_year: int, _month: int, _day: int, _observatory: observatories.Ob
     :param _spectral_range: [spectral, range]
     :return: List[DataPoints]
     """
+    if isinstance(_spectral_range, str):
+        spectral_id = _spectral_range
+    else:
+        try:
+            spectral_id = getSpectralID(_year, _month, _day, _observatory, _spectral_range)
+        except ValueError:
+            return []
     path = const.pathDataDay(_year, _month, _day)
     files_day = sorted(os.listdir(path))
-    spectral_id = observatories.specID(_observatory, _spectral_range)
     files_observatory = []
     data_day = []
 
     for file in files_day:
-        if file.startswith(_observatory.name) and file.endswith(spectral_id + DataPoint.file_ending):
+        if file.startswith(_observatory.name) and file.endswith(spectral_id + file_ending):
             files_observatory.append(file)
 
     for file in files_observatory:
-        data_day.append(DataPoint(file))  # try except |error -> TRIEST_20210906_234530_57.fit   TODO
+        try:
+            data_day.append(DataPoint(file))
+        except TypeError:
+            # corrupt file
+            pass
+        except ValueError:
+            # invalid spectral range id
+            pass
     return data_day
 
 
-def createFromTime(_year, _month, _day, _time, _observatory, _spectral_range):
+def createFromTime(_year, _month, _day, _time, _observatory, _spectral_range: Union[str, List[int]]):
+    if isinstance(_spectral_range, str):
+        spectral_id = _spectral_range
+    else:
+        spectral_id = getSpectralID(_year, _month, _day, _observatory, _spectral_range)
+
     path = const.pathDataDay(_year, _month, _day)
     files = sorted(os.listdir(path))
-    spectral_id = observatories.specID(_observatory, _spectral_range)
     time_target = int(_time[:2])*3600 + int(_time[3:5])*60 + int(_time[6:])
     files_filtered = []
 
     for file in files:
-        if file.startswith(_observatory.name) and file.endswith(spectral_id + DataPoint.file_ending):
+        if file.startswith(_observatory.name) and file.endswith(spectral_id + file_ending):
             files_filtered.append(file)
 
     file_ = files_filtered[0]
@@ -305,9 +358,9 @@ def listDataPointDay(year, month, day, observatory: observatories.Observatory, s
     date_behind = date + timedelta(days=1)
     midnight = date + timedelta(hours=12)
 
-    download.downloadFullDay(date.year, date.month, date.day , [observatory])
-    download.downloadFullDay(date_ahead.year, date_ahead.month, date_ahead.day , [observatory])
-    download.downloadFullDay(date_behind.year, date_behind.month, date_behind.day , [observatory])
+    download.downloadFullDay(date.year, date.month, date.day, [observatory])
+    download.downloadFullDay(date_ahead.year, date_ahead.month, date_ahead.day, [observatory])
+    download.downloadFullDay(date_behind.year, date_behind.month, date_behind.day, [observatory])
 
     day_list = createDay(date.year, date.month, date.day, observatory, spectral_range)
     date_ahead_list = createDay(date_ahead.year, date_ahead.month, date_ahead.day, observatory, spectral_range)
@@ -329,6 +382,9 @@ def listDataPointDay(year, month, day, observatory: observatories.Observatory, s
         date_ahead_relevant = date_ahead_relevant
         return [date_ahead_relevant, day_list]
 
+    if not day_list:
+        return []
+
     frq_profile = frqProfile(day_list)
     day_list = cutFreqProfile(day_list, frq_profile)
     return [day_list]
@@ -340,26 +396,25 @@ def fitTimeFrameDataSample(_data_point1, _data_point2):
 
     TODO: where data is cut, and why
 
-    TODO: throw - no overlap -> return None maybe
-
     :param _data_point1: List[DataPoints]
     :param _data_point2: List[DataPoints]
     :return: DataPoint(timeframe), DataPoint(timeframe)
     """
-
-    while abs((_data_point1[0].dateTime() - _data_point2[0].dateTime()).total_seconds()) >=\
-            timedelta(minutes=15).total_seconds():
-        if (_data_point1[0].dateTime() - _data_point2[0].dateTime()).total_seconds() < 0:
-            _data_point1.pop(0)
-        else:
-            _data_point2.pop(0)
-    while abs((_data_point1[-1].dateTime() - _data_point2[-1].dateTime()).total_seconds()) >= \
-            timedelta(minutes=15).total_seconds():
-        if (_data_point1[-1].dateTime() - _data_point2[-1].dateTime()).total_seconds() > 0:
-            _data_point1.pop(-1)
-        else:
-            _data_point2.pop(-1)
-
+    try:
+        while abs((_data_point1[0].dateTime() - _data_point2[0].dateTime()).total_seconds()) >=\
+                timedelta(minutes=15).total_seconds():
+            if (_data_point1[0].dateTime() - _data_point2[0].dateTime()).total_seconds() < 0:
+                _data_point1.pop(0)
+            else:
+                _data_point2.pop(0)
+        while abs((_data_point1[-1].dateTime() - _data_point2[-1].dateTime()).total_seconds()) >= \
+                timedelta(minutes=15).total_seconds():
+            if (_data_point1[-1].dateTime() - _data_point2[-1].dateTime()).total_seconds() > 0:
+                _data_point1.pop(-1)
+            else:
+                _data_point2.pop(-1)
+    except IndexError:
+        return [], []
     data_merged1 = sum(_data_point1)
     data_merged2 = sum(_data_point2)
     return data_merged1, data_merged2

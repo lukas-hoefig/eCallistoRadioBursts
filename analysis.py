@@ -9,8 +9,6 @@ from datetime import datetime, timedelta
 
 from typing import List, Union
 
-import data
-import observatories
 import const
 
 TIME_TOLERANCE = 60
@@ -18,10 +16,6 @@ LIMIT = 0.70
 DATA_POINTS_PER_SECOND = const.DATA_POINTS_PER_SECOND
 BIN_FACTOR = const.BIN_FACTOR
 BURST_TYPE_UNKNOWN = "???"
-
-#    for file in files_observatory:
-#        data_day.append(data.DataPoint(file))  # try except |error -> TRIEST_20210906_234530_57.fit   TODO
-#    return data_day
 
 
 class Time(datetime):
@@ -34,10 +28,12 @@ class Time(datetime):
 
 class Event:
     """
-    TODO observatories
     """
 
-    def __init__(self, start_time: datetime, end_time=None, probability=1., burst_type=BURST_TYPE_UNKNOWN):
+    def __init__(self, start_time: datetime, end_time=None, probability=1., burst_type=BURST_TYPE_UNKNOWN,
+                 stations=None):
+        if stations is None:
+            stations = []
         self.time_start = Time(start_time.year, start_time.month, start_time.day, start_time.hour,
                                start_time.minute, start_time.second)
         self.time_end = Time(start_time.year, start_time.month, start_time.day, start_time.hour, start_time.minute,
@@ -47,6 +43,7 @@ class Event:
                                  end_time.second)
         self.burst_type = burst_type
         self.probability = probability
+        self.stations = stations
 
     def __str__(self):
         return str([self.burst_type, self.time_start, self.time_end, f"{self.probability:.4f}"])
@@ -54,10 +51,16 @@ class Event:
     def __repr__(self):
         return self.__str__()
 
+    def setTimeEnd(self, time: datetime):
+        self.time_end = Time(time.year, time.month, time.day, time.hour, time.minute, time.second)
+
     def compare(self, other):
         return min(abs(self.time_end - other.time_start).total_seconds(),
-                   abs(self.time_start - other.time_end).total_seconds()) < \
-                   timedelta(seconds=TIME_TOLERANCE).total_seconds()
+                   abs(self.time_start - other.time_end).total_seconds(),
+                   abs(self.time_start - other.time_start).total_seconds()) < \
+                   timedelta(seconds=TIME_TOLERANCE).total_seconds() or \
+                   (self.time_start < other.time_start and self.time_end > other.time_end) or \
+                   (other.time_start < self.time_start and other.time_end > self.time_end)
 
     def __eq__(self, other):
         return self.compare(other)
@@ -92,7 +95,7 @@ class EventList:
     def __bool__(self):
         return bool(self.__len__())
 
-    def __add__(self, other):  # TODO add observatories of all involved
+    def __add__(self, other):
         if isinstance(other, Event):
             return self.__radd__(other)
 
@@ -103,6 +106,8 @@ class EventList:
             else:
                 temp.events[i.inList(temp.events)[1]].probability = \
                     max(temp.events[i.inList(temp.events)[1]].probability, i.probability)
+                temp.events[i.inList(temp.events)[1]].stations += i.stations
+                temp.events[i.inList(temp.events)[1]].stations = list(set(temp.events[i.inList(temp.events)[1]].stations))
         return temp
 
     def __radd__(self, other):
@@ -115,6 +120,8 @@ class EventList:
         else:
             temp.events[other.inList(temp.events)[1]].probability = \
                 max(temp.events[other.inList(temp.events)[1]].probability, other.probability)
+            temp.events[other.inList(temp.events)[1]].stations += other.stations
+            temp.events[other.inList(temp.events)[1]].stations = list(set(temp.events[other.inList(temp.events)[1]].stations))
         return temp
 
     def __sub__(self, other):
@@ -149,3 +156,6 @@ class EventList:
 
     def __str__(self):
         return self.__repr__()
+
+    def sort(self):
+        self.events = sorted(self.events, key=lambda event: event.time_start)

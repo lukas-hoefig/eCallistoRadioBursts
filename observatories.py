@@ -11,8 +11,6 @@ observatory_list = []
 class Observatory:
     """
     TODO: comparable spectral range
-
-    TODO: get id
     """
 
     def __init__(self, name: str, spectral_range: dict, longitude=0.0):
@@ -40,7 +38,11 @@ class Observatory:
         :param identification: string i.e. "01", "02", "57", ...
         :return: list [low, high]
         """
-        return self.spectral_range[identification]
+        try:
+            spectral_range = self.spectral_range[identification]
+        except KeyError:
+            return None
+        return spectral_range
 
     def obsTime(self):
         """
@@ -61,8 +63,12 @@ class ObservatorySet:
         return sets
 
 
-def specID(_observatory, _spectral_range):
+def specID(_observatory, _spectral_range) -> str:
     return next(key for key, s_range in _observatory.spectral_range.items() if s_range == _spectral_range)
+
+
+def specIDs(_observatory, _spectral_range) -> List[str]:
+    return list(key for key, s_range in _observatory.spectral_range.items() if s_range == _spectral_range)
 
 
 def getObservatory(name: str) -> Observatory:
@@ -74,7 +80,7 @@ spec_range_uni_graz = {"01": [45, 81]}
 uni_graz = Observatory(stat_uni_graz, spec_range_uni_graz, longitude=15.5)
 
 stat_swiss_landschlacht = "SWISS-Landschlacht"
-spec_range_swiss_landschlacht = {"01": [45, 81], "02": [np.NaN, np.NaN]}  # true range = [15.0, 86.625]
+spec_range_swiss_landschlacht = {"01": [45, 81], "02": [np.NaN, np.NaN], "62": [45, 81], "63": [40, 200]}  # true range = [15.0, 86.625]
 swiss_landschlacht = Observatory(stat_swiss_landschlacht, spec_range_swiss_landschlacht, longitude=9.239999771)
 
 stat_michelbach = "AUSTRIA-MICHELBACH"
@@ -103,12 +109,12 @@ stat_swiss_heiterswil_old = "Heiterswil-CH"
 spec_range_swiss_heiterswil_old = {"59": [45, 81]}
 swiss_heiterswil_old = Observatory(stat_swiss_heiterswil_old, spec_range_swiss_heiterswil_old, longitude=9.130000114)
 
-# stat_swiss_muhen = "SWISS_MUHEN"
-# spec_range_swiss_muhen = {"02": [np.nan,np.nan ]}
-# swiss_muhen = Observatory(stat_swiss_muhen, spec_range_swiss_muhen, longitude=8.059169769)
+stat_swiss_muhen = "SWISS_MUHEN"
+spec_range_swiss_muhen = {"02": [np.nan,np.nan ], "62": [45, 81], "63": [45, 81]}
+swiss_muhen = Observatory(stat_swiss_muhen, spec_range_swiss_muhen, longitude=8.059169769)
 
 stat_triest = "TRIEST"
-spec_range_triest = {"57": [45, 81]}
+spec_range_triest = {"57": [45, 81], "59": [220, 450]}
 triest = Observatory(stat_triest, spec_range_triest, longitude=13.875)
 
 stat_bir = "BIR"
@@ -120,12 +126,28 @@ spec_range_alaska_haarp = {"62": [45, 81], "63": [45, 81]}   # [10,81]
 alaska_haarp = Observatory(stat_alaska_haarp, spec_range_alaska_haarp, longitude=-145.1699982)
 
 stat_alaska_cohoe = "ALASKA-COHOE"
-spec_range_alaska_cohoe = {"62": [45, 81], "63": [45, 81]}   # [45,95]
+spec_range_alaska_cohoe = {"62": [45, 81], "63": [45, 81], "00": [45, 81], "01": [45, 81]}   # [45,95]
 alaska_cohoe = Observatory(stat_alaska_cohoe, spec_range_alaska_cohoe, longitude=-151.3200073)
 
 stat_roswell = "ROSWELL-NM"
 spec_range_roswell = {"57": [200, 400], "58": [45, 81], "59": [200, 500]}   # [20,80]
 roswell = Observatory(stat_roswell, spec_range_roswell, longitude=-104.51528)
+
+stat_assa = "Australia-ASSA"
+spec_range_assa = {"60": [10, 500], "62": [45, 81], "63": [45, 81]}   # [10,90]
+assa = Observatory(stat_assa, spec_range_assa, longitude=139.639)
+
+stat_indonesia = "INDONESIA"
+spec_range_indonesia = {"59": [45, 81]}
+indonesia = Observatory(stat_indonesia, spec_range_indonesia, longitude=136.1011047)
+
+stat_egypt_alexandria = "EGYPT-Alexandria"
+spec_range_egypt_alexandria = {"01": [45, 81], "02": [45, 81]}
+egypt_alexandria = Observatory(stat_egypt_alexandria, spec_range_egypt_alexandria, longitude=29.5)
+
+stat_arecibo = "Arecibo-Observatory"
+spec_range_arecibo = {"01": [45, 81], "02": [45, 81]}
+arecibo = Observatory(stat_arecibo, spec_range_arecibo, longitude=-66.75)
 
 
 # TODO:
