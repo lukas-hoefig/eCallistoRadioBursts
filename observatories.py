@@ -30,6 +30,12 @@ class Observatory:
     def __repr__(self):
         return self.__str__()
 
+    def __eq__(self, other):
+        return self.name == other.name
+
+    def __hash__(self):
+        return id(hash(self.name))
+
     def getSpectralRange(self, identification: str):
         """
         get spectral range of files
@@ -148,6 +154,24 @@ egypt_alexandria = Observatory(stat_egypt_alexandria, spec_range_egypt_alexandri
 stat_arecibo = "Arecibo-Observatory"
 spec_range_arecibo = {"01": [45, 81], "02": [45, 81]}
 arecibo = Observatory(stat_arecibo, spec_range_arecibo, longitude=-66.75)
+
+stat_humain = "HUMAIN"
+spec_range_humain = {"59": [45, 81]}   # true 45 - 450
+humain = Observatory(stat_humain, spec_range_humain, longitude=5.255388737)
+
+stat_glasgow = "GLASGOW"
+spec_range_glasgow = {"01": [45, 81]}   # true - 45 - 450
+glasgow = Observatory(stat_glasgow, spec_range_glasgow, longitude=-7.92)
+
+"""
+GREENLAND
+stat_greenland = "GREENLAND"
+spec_range_greenland = {"62": [45, 81], "63": [45, 81]}   # true - 10 - 110
+greenland = Observatory(stat_greenland, spec_range_greenland, longitude=-50.95000076)
+
+
+"""
+
 
 
 # TODO:

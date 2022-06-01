@@ -30,8 +30,6 @@ def missingThings():
     pass
 
 
-spec_range = [45, 81]
-
 
 def testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w):
 
@@ -109,7 +107,7 @@ def testRun(_year, _month, _day, _days, spec_range=None,
     observatory = [observatories.uni_graz, observatories.triest, observatories.swiss_landschlacht, observatories.oe3flb,
                    observatories.alaska_haarp, observatories.alaska_cohoe, observatories.roswell, observatories.bir,
                    observatories.indonesia, observatories.assa, observatories.swiss_muhen, observatories.swiss_hb9sct,
-                   observatories.egypt_alexandria, observatories.arecibo]
+                   observatories.egypt_alexandria, observatories.arecibo, observatories.glasgow, observatories.humain]
 
     for i in range(number_days):
         date = date_start + time_step * i

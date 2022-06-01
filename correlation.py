@@ -84,7 +84,7 @@ class Correlation:
     def calculatePeaks(self, _limit=CORRELATION_MIN):
         within_burst = False
         peaks = []
-        if self.data_point_1.observatory == self.data_point_2:
+        if self.data_point_1.observatory == self.data_point_2.observatory:
             return
         for point in range(len(self.data_curve)):
             if self.data_curve[point] > _limit and not within_burst:

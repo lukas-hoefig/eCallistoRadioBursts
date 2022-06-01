@@ -1,5 +1,4 @@
-# from calendar import month
-import matplotlib.pyplot as plt
+"""import matplotlib.pyplot as plt
 from datetime import datetime
 from datetime import timedelta
 import const
@@ -10,8 +9,47 @@ import analysis
 import correlation
 
 from datetime import datetime
+"""
+import datetime
+
+import radiospectra.sources.callisto as cal
+import os
+
+import observatories
+import data
+import reference
+import const
+import analysis
+
+year = 2022
+month = 1
+day = 13
+time = "10:31:00"
+date = datetime.datetime(year, month, day, int(time[:2]), int(time[3:5]))
+obs = [observatories.uni_graz, observatories.triest, observatories.swiss_landschlacht, observatories.oe3flb,
+       observatories.alaska_haarp, observatories.alaska_cohoe, observatories.roswell, observatories.bir,
+       observatories.indonesia, observatories.assa, observatories.swiss_muhen, observatories.swiss_hb9sct,
+       observatories.egypt_alexandria, observatories.arecibo]
+
+for i in obs:
+    try:
+        dp = data.createFromTime(year, month, day, time, i, [45, 81])
+        dp.plot()
+    except:
+        pass
 
 
+ref1 = reference.referenceMonstein(year, month, day)
+
+print("monstein")
+for i in ref1:
+    print(i, i.stations)
+
+ref2 = reference.referenceSWPC(year, month, day)
+
+print("swpc")
+print(ref2)
+"""
 o_unigraz = observatories.uni_graz
 spec_range = [45, 81]
 
@@ -72,3 +110,4 @@ c.printResult()
 fig, ax = plt.subplots(figsize=(16,9))
 c.plotCurve(ax)
 plt.show()
+"""

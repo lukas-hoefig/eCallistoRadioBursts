@@ -108,6 +108,7 @@ class EventList:
                     max(temp.events[i.inList(temp.events)[1]].probability, i.probability)
                 temp.events[i.inList(temp.events)[1]].stations += i.stations
                 temp.events[i.inList(temp.events)[1]].stations = list(set(temp.events[i.inList(temp.events)[1]].stations))
+                # TODO stations bugged
         return temp
 
     def __radd__(self, other):

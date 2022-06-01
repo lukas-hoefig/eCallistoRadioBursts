@@ -63,6 +63,9 @@ def urlReferenceMonstein(year: int, month: int):
 
 
 def referenceMonstein(year: int, month: int, day: int):
+    """
+    TODO: download txt , check if file exist, only then check url
+    """
     url = urlReferenceMonstein(year, month)
     file = urllib.request.urlopen(url)
     events = analysis.EventList([])

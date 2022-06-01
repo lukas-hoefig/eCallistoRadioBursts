@@ -1,0 +1,67 @@
+import matplotlib.pyplot as plt
+
+import correlation
+import observatories
+import data
+
+year = 2022
+month = 1
+day = 10
+obs = [observatories.uni_graz,              # 0
+       observatories.triest,                # 1
+       observatories.swiss_landschlacht,    # 2
+       observatories.oe3flb,                # 3
+       observatories.alaska_haarp,          # 4
+       observatories.alaska_cohoe,          # 5
+       observatories.roswell,               # 6
+       observatories.bir,                   # 7
+       observatories.indonesia,             # 8
+       observatories.assa,                  # 9
+       observatories.swiss_muhen,           # 10
+       observatories.swiss_hb9sct,          # 11
+       observatories.egypt_alexandria,      # 12
+       observatories.arecibo]               # 13
+
+obs1 = obs[6]
+obs2 = obs[13]
+
+dp1 = data.createFromTime(year, month, day, "18:48:00", obs1, [45, 81])
+dp2 = data.createFromTime(year, month, day, "18:48:00", obs2, [45, 81])
+
+cor1 = correlation.Correlation(dp1, dp2, day=day, _flatten=True, _bin_time=False, _bin_freq=False, _no_background=False,
+                               _r_window=180)
+cor1.calculatePeaks(_limit=0.6)
+print(cor1.fileName())
+print(cor1.peaks)
+
+cor = correlation.Correlation(dp1, dp2, day=day, _flatten=True, _bin_time=True, _bin_freq=True, _no_background=True,
+                              _r_window=30)
+cor.calculatePeaks()
+print(cor.fileName())
+print(cor.peaks)
+
+fig, ax = plt.subplots(figsize=(16, 9))
+cor.plotCurve(ax)
+cor1.plotCurve(ax)
+plt.show()
+
+fig2, ax2 = plt.subplots(figsize=(16, 9))
+ax2_ = plt.twinx(ax2)
+dp1.flattenSummedCurve()
+dp2.flattenSummedCurve()
+dp1.plotSummedCurve(ax2)
+dp2.plotSummedCurve(ax2_)
+plt.show()
+
+fig3, ax3 = plt.subplots(figsize=(16, 9))
+ax3_ = plt.twinx(ax3)
+cor.plotCurve(ax3)
+
+dp1.flattenSummedCurve()
+dp2.flattenSummedCurve()
+dp1.plotSummedCurve(ax3_)
+dp2.plotSummedCurve(ax3_)
+
+
+plt.show()
+
