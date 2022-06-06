@@ -23,13 +23,13 @@ import analysis
 
 year = 2022
 month = 1
-day = 13
-time = "10:31:00"
+day = 9
+time = "10:11:00"
 date = datetime.datetime(year, month, day, int(time[:2]), int(time[3:5]))
 obs = [observatories.uni_graz, observatories.triest, observatories.swiss_landschlacht, observatories.oe3flb,
        observatories.alaska_haarp, observatories.alaska_cohoe, observatories.roswell, observatories.bir,
        observatories.indonesia, observatories.assa, observatories.swiss_muhen, observatories.swiss_hb9sct,
-       observatories.egypt_alexandria, observatories.arecibo]
+       observatories.egypt_alexandria, observatories.arecibo, observatories.greenland]
 
 for i in obs:
     try:

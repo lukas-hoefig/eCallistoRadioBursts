@@ -163,13 +163,12 @@ stat_glasgow = "GLASGOW"
 spec_range_glasgow = {"01": [45, 81]}   # true - 45 - 450
 glasgow = Observatory(stat_glasgow, spec_range_glasgow, longitude=-7.92)
 
-"""
-GREENLAND
+
 stat_greenland = "GREENLAND"
 spec_range_greenland = {"62": [45, 81], "63": [45, 81]}   # true - 10 - 110
 greenland = Observatory(stat_greenland, spec_range_greenland, longitude=-50.95000076)
 
-
+"""
 """
 
 

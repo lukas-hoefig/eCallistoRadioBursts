@@ -65,6 +65,8 @@ def urlReferenceMonstein(year: int, month: int):
 def referenceMonstein(year: int, month: int, day: int):
     """
     TODO: download txt , check if file exist, only then check url
+
+    TODO: 9.1. 10:11 - long line maybe? doesnt load
     """
     url = urlReferenceMonstein(year, month)
     file = urllib.request.urlopen(url)

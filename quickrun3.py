@@ -9,10 +9,10 @@ import reference
 
 spec_range = [45, 81]
 _year = 2022
-_month = 1
-_day = 31
+_month = 2
+_day = 13
 _days = 1
-time = "08:24:00"
+time = "13:44:00"
 date = analysis.Time(_year, _month, _day, int(time[:2]), int(time[3:5]))
 
 observatory = [observatories.uni_graz,
@@ -30,7 +30,7 @@ observatory = [observatories.uni_graz,
                observatories.egypt_alexandria,
                observatories.arecibo]
 
-obs = observatories.uni_graz
+obs = observatories.greenland
 
 dp1 = data.createFromTime(_year, _month, _day, time, obs, spec_range)
 dp2 = data.createFromTime(_year, _month, _day, str(date+timedelta(minutes=15)), obs, spec_range)
