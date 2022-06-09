@@ -4,9 +4,7 @@ import correlation
 import observatories
 import data
 
-year = 2022
-month = 1
-day = 10
+
 obs = [observatories.uni_graz,              # 0
        observatories.triest,                # 1
        observatories.swiss_landschlacht,    # 2
@@ -20,13 +18,20 @@ obs = [observatories.uni_graz,              # 0
        observatories.swiss_muhen,           # 10
        observatories.swiss_hb9sct,          # 11
        observatories.egypt_alexandria,      # 12
-       observatories.arecibo]               # 13
+       observatories.arecibo,               # 13
+       observatories.humain,
+       observatories.glasgow]
 
-obs1 = obs[6]
-obs2 = obs[13]
+obs1 = obs[15]
+obs2 = obs[14]
 
-dp1 = data.createFromTime(year, month, day, "18:48:00", obs1, [45, 81])
-dp2 = data.createFromTime(year, month, day, "18:48:00", obs2, [45, 81])
+year = 2022
+month = 1
+day = 7
+time = "03:32:00"
+
+dp1 = data.createFromTime(year, month, day, time, obs1, [45, 81])
+dp2 = data.createFromTime(year, month, day, time, obs2, [45, 81])
 
 cor1 = correlation.Correlation(dp1, dp2, day=day, _flatten=True, _bin_time=False, _bin_freq=False, _no_background=False,
                                _r_window=180)

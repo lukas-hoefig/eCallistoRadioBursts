@@ -65,8 +65,6 @@ def urlReferenceMonstein(year: int, month: int):
 def referenceMonstein(year: int, month: int, day: int):
     """
     TODO: download txt , check if file exist, only then check url
-
-    TODO: 9.1. 10:11 - long line maybe? doesnt load
     """
     url = urlReferenceMonstein(year, month)
     file = urllib.request.urlopen(url)
@@ -85,6 +83,8 @@ def referenceMonstein(year: int, month: int, day: int):
                 _time_start = datetime(year=_year, month=_month, day=_day, hour=int(_times[0][:2]), minute=int(_times[0][3:5]))
                 _time_end = datetime(year=_year, month=_month, day=_day, hour=int(_times[1][:2]), minute=int(_times[1][3:5]))
                 _type = dat[2]
+                if _type == "CTM":
+                    continue
                 _stations = dat[3].rsplit(", ")
                 _observatories = []
                 for i in _stations:
@@ -92,7 +92,7 @@ def referenceMonstein(year: int, month: int, day: int):
                         _observatories.append(observatories.observatory_dict[i])
                     except KeyError:
                         pass
-                event = analysis.Event(_time_start,end_time=_time_end, stations=_observatories, burst_type=_type)
+                event = analysis.Event(_time_start, end_time=_time_end, stations=_observatories, burst_type=_type)
                 events += event
     return events
 

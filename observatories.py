@@ -94,13 +94,11 @@ spec_range_michelbach = {"60": [175, 380]}
 michelbach = Observatory(stat_michelbach, spec_range_michelbach, longitude=15.39999962)
 
 stat_oe3flb = "AUSTRIA-OE3FLB"
-# spec_range_oe3flb = {"57": [20.0, 91.625]}
-spec_range_oe3flb = {"57": [45, 81]}
+spec_range_oe3flb = {"57": [45, 81]}    # [20.0, 91.625] true
 oe3flb = Observatory(stat_oe3flb, spec_range_oe3flb, longitude=15.39999962)
 
 stat_austria = "AUSTRIA"
-# spec_range_austria = {"57": [20, 91.625]}
-spec_range_austria = {"57": [45, 81]}
+spec_range_austria = {"57": [45, 81]}   # [20, 91.625]
 austria = Observatory(stat_austria, spec_range_austria, longitude=15.39999962)
 
 stat_swiss_hb9sct = "HB9SCT"  # swiss-hb9sct   ?????????
@@ -116,7 +114,7 @@ spec_range_swiss_heiterswil_old = {"59": [45, 81]}
 swiss_heiterswil_old = Observatory(stat_swiss_heiterswil_old, spec_range_swiss_heiterswil_old, longitude=9.130000114)
 
 stat_swiss_muhen = "SWISS_MUHEN"
-spec_range_swiss_muhen = {"02": [np.nan,np.nan ], "62": [45, 81], "63": [45, 81]}
+spec_range_swiss_muhen = {"02": [np.nan, np.nan], "62": [45, 81], "63": [45, 81]}
 swiss_muhen = Observatory(stat_swiss_muhen, spec_range_swiss_muhen, longitude=8.059169769)
 
 stat_triest = "TRIEST"
