@@ -5,7 +5,7 @@ from datetime import datetime
 import urllib
 
 import const
-import analysis
+import events
 import observatories
 
 path_data = const.path_data
@@ -50,10 +50,10 @@ def referenceSWPC(year, month, day):
         end_hour = int(line[3][:2])
         end_minute = int(line[3][2:])
         b_type = line[8]
-        event = analysis.Event(datetime(year, month, day, start_hour, start_minute),
-                               end_time=datetime(year, month, day, end_hour, end_minute), burst_type=b_type)
+        event = events.Event(datetime(year, month, day, start_hour, start_minute),
+                             end_time=datetime(year, month, day, end_hour, end_minute), burst_type=b_type)
         references.append(event)
-    return analysis.EventList(references)
+    return events.EventList(references)
 
 
 def urlReferenceMonstein(year: int, month: int):
@@ -68,7 +68,7 @@ def referenceMonstein(year: int, month: int, day: int):
     """
     url = urlReferenceMonstein(year, month)
     file = urllib.request.urlopen(url)
-    events = analysis.EventList([])
+    event_list = events.EventList([])
     for line in file:
         decoded_line = line.decode("utf-8").rstrip("\n")
         if decoded_line.startswith(str(year)):
@@ -92,15 +92,15 @@ def referenceMonstein(year: int, month: int, day: int):
                         _observatories.append(observatories.observatory_dict[i])
                     except KeyError:
                         pass
-                event = analysis.Event(_time_start, end_time=_time_end, stations=_observatories, burst_type=_type)
-                events += event
-    return events
+                event = events.Event(_time_start, end_time=_time_end, stations=_observatories, burst_type=_type)
+                event_list += event
+    return event_list
 
 
 def referenceMonstein2orMore(year: int, month: int, day: int):
     url = urlReferenceMonstein(year, month)
     file = urllib.request.urlopen(url)
-    events = analysis.EventList([])
+    event_list = events.EventList([])
     for line in file:
         decoded_line = line.decode("utf-8").rstrip("\n")
         if decoded_line.startswith(str(year)):
@@ -124,6 +124,6 @@ def referenceMonstein2orMore(year: int, month: int, day: int):
                         pass
                 if len(_observatories) < 2:
                     continue
-                event = analysis.Event(_time_start, end_time=_time_end, stations=_observatories, burst_type=_type)
-                events += event
-    return events
+                event = events.Event(_time_start, end_time=_time_end, stations=_observatories, burst_type=_type)
+                event_list += event
+    return event_list

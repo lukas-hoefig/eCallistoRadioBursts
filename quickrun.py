@@ -19,7 +19,7 @@ import observatories
 import data
 import reference
 import const
-import analysis
+import events
 
 year = 2022
 month = 1

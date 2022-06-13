@@ -7,7 +7,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 from typing import List, Union
 
-import analysis
+import events
 import data
 import observatories
 import const
@@ -42,7 +42,7 @@ class Correlation:
         self.method_bin_f = method_bin_f
         self.method_bin_t = method_bin_t
 
-        self.peaks = analysis.EventList([])
+        self.peaks = events.EventList([])
         self.frequency_range = None
         self.time_axis = None
         self.time_start = None
@@ -89,7 +89,7 @@ class Correlation:
         for point in range(len(self.data_curve)):
             if self.data_curve[point] > _limit and not within_burst:
                 time_start = datetime.fromtimestamp(point / self.data_per_second + self.time_start)
-                burst = analysis.Event(time_start, probability=self.data_curve[point], stations=[self.data_point_1.observatory, self.data_point_2.observatory])
+                burst = events.Event(time_start, probability=self.data_curve[point], stations=[self.data_point_1.observatory, self.data_point_2.observatory])
                 if burst.time_start.day == self.day:
                     peaks.append(burst)
                     within_burst = True
@@ -109,7 +109,7 @@ class Correlation:
                 within_burst = False
 
         if peaks:
-            if peaks[-1].burst_type == analysis.BURST_TYPE_UNKNOWN:  # TODO
+            if peaks[-1].burst_type == events.BURST_TYPE_UNKNOWN:  # TODO
                 if peaks[-1].probability == np.around(1, 3):
                     peaks.pop(-1)
                 else:
@@ -117,7 +117,7 @@ class Correlation:
             for peak in peaks:
                 if np.isinf(peak.probability):
                     peaks.remove(peak)
-            self.peaks = analysis.EventList(peaks)
+            self.peaks = events.EventList(peaks)
 
     def fileName(self):
         return "{}_{}_{}_{}_{}_{}{}{}{}{}.png"\
@@ -136,7 +136,7 @@ class Correlation:
         for i in self.peaks:
             print(i)
 
-    def compareToTest(self, test: analysis.EventList):
+    def compareToTest(self, test: events.EventList):
         """
         :return: [not found, false found]
         """

@@ -10,7 +10,7 @@ import const
 import data
 import observatories
 import download
-import analysis
+import events
 import correlation
 import reference
 
@@ -66,7 +66,7 @@ def testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w):
                   "r_window:{}".format(r_w)))
 
     for _test in reference:
-        events = analysis.EventList([])
+        events = events.EventList([])
         year = _test[0]
         month = _test[1]
         day = _test[2]
@@ -119,7 +119,7 @@ def testRun(_year, _month, _day, _days, spec_range=None,
         sets = []
         for j in stations:
             sets.extend(data.listDataPointDay(year, month, day, j, spec_range))
-        events = analysis.EventList([])
+        events = events.EventList([])
         for set1 in range(len(sets) - 1):
             for set2 in range(set1 + 1, len(sets)):
                 data1_raw = copy.deepcopy(sets[set1])

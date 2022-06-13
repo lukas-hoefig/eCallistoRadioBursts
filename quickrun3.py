@@ -4,7 +4,7 @@ import correlation
 import observatories
 import download
 import data
-import analysis
+import events
 import reference
 
 spec_range = [45, 81]
@@ -13,7 +13,7 @@ _month = 2
 _day = 13
 _days = 1
 time = "13:44:00"
-date = analysis.Time(_year, _month, _day, int(time[:2]), int(time[3:5]))
+date = events.Time(_year, _month, _day, int(time[:2]), int(time[3:5]))
 
 observatory = [observatories.uni_graz,
                observatories.triest,
