@@ -13,22 +13,30 @@ import observatories
 import const
 
 CORRELATION_MIN = 0.8
-CORRELATION_PEAK_END = CORRELATION_MIN / 7
+CORRELATION_PEAK_END = 0.25
 DATA_POINTS_PER_SECOND = const.DATA_POINTS_PER_SECOND
 BIN_FACTOR = const.BIN_FACTOR
 LENGTH_TYPE_III_AVG = 120    # TODO definition type II / III -> const | * 4 for seconds ?
 TYPE_III = "III"
 TYPE_II = " II"
 TYPE_IV = " IV"
+BURST_TYPE_UNKNOWN = events.BURST_TYPE_UNKNOWN
+default_time_window = 4
+default_flatten_window = 2000
+default_r_window = 180
 
 
 class Correlation:
     def __init__(self, data_point_1: data.DataPoint, data_point_2: data.DataPoint, day: int,
                  _no_background=False, _bin_freq=False, _bin_time=False, _flatten=False,
-                 _bin_time_width=4, _flatten_window=100, _r_window=180, method_bin_t='median', method_bin_f='median'):
+                 _bin_time_width=default_time_window,
+                 _flatten_window=default_flatten_window,
+                 _r_window=default_r_window,
+                 method_bin_t='median',
+                 method_bin_f='median'):
 
-        self.data_point_1 = data_point_1
-        self.data_point_2 = data_point_2
+        self.data_point_1 = copy.deepcopy(data_point_1)
+        self.data_point_2 = copy.deepcopy(data_point_2)
 
         self.day = day
 
@@ -109,7 +117,7 @@ class Correlation:
                 within_burst = False
 
         if peaks:
-            if peaks[-1].burst_type == events.BURST_TYPE_UNKNOWN:  # TODO
+            if peaks[-1].burst_type == BURST_TYPE_UNKNOWN:  # TODO
                 if peaks[-1].probability == np.around(1, 3):
                     peaks.pop(-1)
                 else:

@@ -9,68 +9,55 @@ import numpy as np
 import pandas as pd
 import copy
 import pickle
+from typing import Union
 
 import const
 import data
 import correlation
 import events
+import observatories
 
 plot_size_x = 19
 plot_size_y = 12
+mask_frq_limit = 1.5
+
+# TODO make plot() its own function - code duplication
 
 
-# TODO masked as variable
-
-
-def maskBadFrequencies(dp1, limit=1):
+def maskBadFrequencies(dp1, limit=mask_frq_limit):
     dpt = copy.deepcopy(dp1)
     dpt.subtract_background()
     data_ = dpt.spectrum_data.data
 
     summed = np.array([np.nansum(data_[f]) for f in range(len(data_))])
     summed_lim = limit * np.nanstd(summed)
-    mask = [abs(i) > summed_lim for i in summed]
+    summed_mean = np.nanmean(summed)
+    mask = [abs(i - summed_mean) > summed_lim for i in summed]
     return mask
 
 
-def maskBadFrequenciesPlot(dp1, limit=1):
+def maskBadFrequenciesPlot(dp1, limit=mask_frq_limit):
     data_ = dp1.spectrum_data.data
-    summed = np.array([np.nansum(data_[f]) for f in range(len(data_))])
+    frq = dp1.spectrum_data.freq_axis
+    summed = np.array([np.nansum(f) for f in data_])
     summed_max = np.nanmax(summed)
     summed_min = np.nanmin(summed)
 
     mask = maskBadFrequencies(dp1, limit=limit)
-    summed_ = copy.copy(summed)
-    summed_[mask] = np.nanmean(data_)    # TODO np.nan
+    summed_masked = copy.copy(summed)
+    summed_masked[mask] = np.nanmean(summed)
 
     fig, ax = plt.subplots(figsize=(plot_size_x, plot_size_y))
-    curve, = plt.plot(summed)
-    curve_, = plt.plot(summed_)
-
-    ax.set_xticks([len(data_) * i / 10 for i in range(0, 11)],
-                  np.around(dp1.spectrum_data.freq_axis[::int(len(dp1.spectrum_data.freq_axis) / 10)], 1))
-    newx = curve.get_xdata()
-    newy = curve.get_ydata()
-    newx_ = curve_.get_xdata()
-    newy_ = curve_.get_ydata()
-    plt.close()
-
-    fig, ax = plt.subplots(figsize=(a, b))
-    plt.imshow(dp1.spectrum_data.data, extent=[summed_min, summed_max, 0, 192], aspect='auto', origin='lower')
-    ax.set_ylim([45, 81])
+    plt.imshow(dp1.spectrum_data.data, extent=[summed_min, summed_max, frq[0], frq[-1]],
+               aspect='auto', origin='lower')
+    ax.set_ylim(frq[0], frq[-1])
     ax.set_xlim([np.nanmin(summed), np.nanmax(summed)])
-    ax.set_yticks([len(data_) * i / 10 for i in range(0, 11)],
-                  np.around(dp1.spectrum_data.freq_axis[::int(len(dp1.spectrum_data.freq_axis) / 10)], 1))
+
     plt.xlabel("Intensity [arbitrary units]")
     plt.ylabel("frequency [MHz]")
 
-    curve2, = ax.plot(summed, color='red', label="Dropped Frequency Regime")
-    curve2.set_xdata(newy)
-    curve2.set_ydata(newx)
-
-    curve2_, = ax.plot(summed_, color='orange', label="Summed Intensity")
-    curve2_.set_xdata(newy_)
-    curve2_.set_ydata(newx_)
+    ax.plot(summed, frq, color='red', label="Dropped Frequency Regime")
+    ax.plot(summed_masked, frq, color='orange', label="Summed Intensity")
 
     ax.legend(loc="lower left")
     plt.show()
@@ -78,198 +65,59 @@ def maskBadFrequenciesPlot(dp1, limit=1):
     return mask
 
 
-def calcPointMasked(year, month, day, time, obs1, obs2, spec_range=const.spectral_range):
+def calcPoint(year: int, month: int, day: int, time: Union[str, datetime],
+              obs1: observatories.Observatory, obs2: observatories.Observatory, spec_range=const.spectral_range,
+              mask_frq=False, limit_frq=mask_frq_limit):
     """
-    TODO split this and calcPoint - code duplication
+
     """
+    if isinstance(time, datetime):
+        time_ = time.strftime("%H:%M:%S")
+        date = time
+    else:
+        time_ = time
+        date = datetime(year, month, day, int(time_[:2]), int(time_[3:5]), int(time_[6:]))
 
-    dp1 = data.createFromTime(year, month, day, time, obs1, spec_range)
-    dp2 = data.createFromTime(year, month, day, time, obs2, spec_range)
-    cor1 = correlation.Correlation(dp1, dp2, day=day,
-                                   _flatten=True, _bin_time=False, _bin_freq=False, _no_background=False,
-                                   _r_window=180)
-    cor1.calculatePeaks(_limit=0.6)
-    print(cor1.fileName())
-    print(cor1.peaks)
+    blind_spot = (correlation.default_r_window / correlation.default_time_window) / 60
 
-    dp1 = data.createFromTime(year, month, day, time, obs1, spec_range)
-    dp2 = data.createFromTime(year, month, day, time, obs2, spec_range)
+    if int(time_[3:5]) % const.LENGTH_FILES_MINUTES < blind_spot:
+        date2 = date - timedelta(minutes=const.LENGTH_FILES_MINUTES)
+        time2 = date2.strftime("%H:%M:%S")
+        dp11 = data.createFromTime(year, month, day, time2, obs1, spec_range)
+        dp12 = data.createFromTime(year, month, day, time_, obs1, spec_range)
+        dp21 = data.createFromTime(year, month, day, time2, obs2, spec_range)
+        dp22 = data.createFromTime(year, month, day, time_, obs2, spec_range)
+        dp1 = dp11 + dp12
+        dp2 = dp21 + dp22
+    else:
+        dp1 = data.createFromTime(year, month, day, time_, obs1, spec_range)
+        dp2 = data.createFromTime(year, month, day, time_, obs2, spec_range)
 
-    mask1 = maskBadFrequencies(dp1)
-    mask2 = maskBadFrequencies(dp2)
-    dp1_ = copy.deepcopy(dp1)
-    dp1_.spectrum_data.data[mask1, :] = np.nanmean(dp1_.spectrum_data.data)     # TODO np.nan
-    dp2_ = copy.deepcopy(dp2)
-    dp2_.spectrum_data.data[mask2, :] = np.nanmean(dp2_.spectrum_data.data)
+    if mask_frq:
+        mask1 = maskBadFrequencies(dp1, limit=limit_frq)
+        mask2 = maskBadFrequencies(dp2, limit=limit_frq)
+        dp1.spectrum_data.data[mask1, :] = np.nanmean(dp1.spectrum_data.data)
 
-    cor = correlation.Correlation(dp1_, dp2_, day=day,
+        dp2.spectrum_data.data[mask2, :] = np.nanmean(dp2.spectrum_data.data)
+    else:
+        pass
+    dp1_cor = copy.deepcopy(dp1)
+    dp2_cor = copy.deepcopy(dp2)
+    # TODO parameter all corr variables
+    cor = correlation.Correlation(dp1_cor, dp2_cor, day=day,
                                   _flatten=True, _bin_time=True, _bin_freq=False, _no_background=True,
-                                  _r_window=45)
+                                  _r_window=int(correlation.default_r_window/correlation.default_time_window),
+                                  _flatten_window=correlation.default_flatten_window,
+                                  _bin_time_width=correlation.default_time_window)
     cor.calculatePeaks()
     print(cor.fileName())
     print(cor.peaks)
 
-    dp1 = data.createFromTime(year, month, day, time, obs1, spec_range)
-    dp2 = data.createFromTime(year, month, day, time, obs2, spec_range)
-    dp1_ = copy.deepcopy(dp1)
-    dp2_ = copy.deepcopy(dp2)
-    dp1_.spectrum_data.data[mask1, :] = np.nanmean(dp1_.spectrum_data.data)     # TODO np.nan
-    dp2_.spectrum_data.data[mask2, :] = np.nanmean(dp2_.spectrum_data.data)
-    dp1_.createSummedCurve([dp1.spectrum_data.freq_axis[-1], dp1.spectrum_data.freq_axis[0]])
-    dp2_.createSummedCurve([dp2.spectrum_data.freq_axis[-1], dp2.spectrum_data.freq_axis[0]])
-    dp1_.flattenSummedCurve()
-    dp2_.flattenSummedCurve()
-
-    return dp1_, dp2_, cor   # , cor1
-
-
-def calcPoint(year, month, day, time, obs1, obs2, spec_range=const.spectral_range):
-    dp1 = data.createFromTime(year, month, day, time, obs1, spec_range)
-    dp2 = data.createFromTime(year, month, day, time, obs2, spec_range)
-    cor1 = correlation.Correlation(dp1, dp2, day=day,
-                                   _flatten=True, _bin_time=False, _bin_freq=False, _no_background=False,
-                                   _r_window=180)
-    cor1.calculatePeaks(_limit=0.6)
-    print(cor1.fileName())
-    print(cor1.peaks)
-
-    dp1 = data.createFromTime(year, month, day, time, obs1, spec_range)
-    dp2 = data.createFromTime(year, month, day, time, obs2, spec_range)
-    cor = correlation.Correlation(dp1, dp2, day=day,
-                                  _flatten=True, _bin_time=True, _bin_freq=True, _no_background=True,
-                                  _r_window=45)
-    cor.calculatePeaks()
-    print(cor.fileName())
-    print(cor.peaks)
-
-    dp1 = data.createFromTime(year, month, day, time, obs1, spec_range)
-    dp2 = data.createFromTime(year, month, day, time, obs2, spec_range)
-    dp1.createSummedCurve([dp1.spectrum_data.freq_axis[-1], dp1.spectrum_data.freq_axis[0]])
-    dp2.createSummedCurve([dp2.spectrum_data.freq_axis[-1], dp2.spectrum_data.freq_axis[0]])
-    dp1.subtract_background()
-    dp2.subtract_background()
-    dp1.flattenSummedCurve()
-    dp2.flattenSummedCurve()
-
-    return dp1, dp2, cor   # , cor1
-
-
-def calcPointLong(year, month, day, time, obs1, obs2, spec_range=const.spectral_range):
-    date = datetime(year, month, day, int(time[:2]), int(time[3:5]), int(time[6:]))
-    date2 = date - timedelta(minutes=15)
-    time2 = f"{str(date2.hour).zfill(2)}:{str(date2.minute).zfill(2)}:{str(date2.second).zfill(2)}"
-
-    dp11 = data.createFromTime(year, month, day, time2, obs1, spec_range)
-    dp12 = data.createFromTime(year, month, day, time, obs1, spec_range)
-    dp21 = data.createFromTime(year, month, day, time2, obs2, spec_range)
-    dp22 = data.createFromTime(year, month, day, time, obs2, spec_range)
-    dp1 = dp11 + dp12
-    dp2 = dp21 + dp22
-
-    cor1 = correlation.Correlation(dp1, dp2, day=day,
-                                   _flatten=True, _bin_time=False, _bin_freq=False, _no_background=False,
-                                   _r_window=180)
-    cor1.calculatePeaks(_limit=0.6)
-    print(cor1.fileName())
-    print(cor1.peaks)
-
-    dp11 = data.createFromTime(year, month, day, time2, obs1, spec_range)
-    dp12 = data.createFromTime(year, month, day, time, obs1, spec_range)
-    dp21 = data.createFromTime(year, month, day, time2, obs2, spec_range)
-    dp22 = data.createFromTime(year, month, day, time, obs2, spec_range)
-    dp1 = dp11 + dp12
-    dp2 = dp21 + dp22
-
-    cor = correlation.Correlation(dp1, dp2, day=day,
-                                  _flatten=True, _bin_time=True, _bin_freq=True, _no_background=True,
-                                  _r_window=45)
-    cor.calculatePeaks()
-    print(cor.fileName())
-    print(cor.peaks)
-
-    dp11 = data.createFromTime(year, month, day, time2, obs1, spec_range)
-    dp12 = data.createFromTime(year, month, day, time, obs1, spec_range)
-    dp21 = data.createFromTime(year, month, day, time2, obs2, spec_range)
-    dp22 = data.createFromTime(year, month, day, time, obs2, spec_range)
-    dp1 = dp11 + dp12
-    dp2 = dp21 + dp22
-
-    dp1.createSummedCurve([dp1.spectrum_data.freq_axis[-1], dp1.spectrum_data.freq_axis[0]])
-    dp2.createSummedCurve([dp2.spectrum_data.freq_axis[-1], dp2.spectrum_data.freq_axis[0]])
-    dp1.subtract_background()
-    dp2.subtract_background()
-    dp1.flattenSummedCurve()
-    dp2.flattenSummedCurve()
-
-    return dp1, dp2, cor   # , cor1
-
-
-def calcPointLongMasked(year, month, day, time, obs1, obs2, spec_range=const.spectral_range):
-    date = datetime(year, month, day, int(time[:2]), int(time[3:5]), int(time[6:]))
-    date2 = date - timedelta(minutes=15)
-    time2 = f"{str(date2.hour).zfill(2)}:{str(date2.minute).zfill(2)}:{str(date2.second).zfill(2)}"
-
-    dp11 = data.createFromTime(year, month, day, time2, obs1, spec_range)
-    dp12 = data.createFromTime(year, month, day, time, obs1, spec_range)
-    dp21 = data.createFromTime(year, month, day, time2, obs2, spec_range)
-    dp22 = data.createFromTime(year, month, day, time, obs2, spec_range)
-    dp1 = dp11 + dp12
-    dp2 = dp21 + dp22
-    mask1 = maskBadFrequencies(dp1)
-    mask2 = maskBadFrequencies(dp2)
-    dp1_ = copy.deepcopy(dp1)
-    dp1_.spectrum_data.data[mask1, :] = np.nanmean(dp1_.spectrum_data.data)     # TODO np.nan
-    dp2_ = copy.deepcopy(dp2)
-    dp2_.spectrum_data.data[mask2, :] = np.nanmean(dp2_.spectrum_data.data)
-
-    cor1 = correlation.Correlation(dp1_, dp2_, day=day,
-                                   _flatten=True, _bin_time=False, _bin_freq=False, _no_background=False,
-                                   _r_window=180)
-    cor1.calculatePeaks(_limit=0.6)
-    print(cor1.fileName())
-    print(cor1.peaks)
-
-    dp11 = data.createFromTime(year, month, day, time2, obs1, spec_range)
-    dp12 = data.createFromTime(year, month, day, time, obs1, spec_range)
-    dp21 = data.createFromTime(year, month, day, time2, obs2, spec_range)
-    dp22 = data.createFromTime(year, month, day, time, obs2, spec_range)
-    dp1 = dp11 + dp12
-    dp2 = dp21 + dp22
-    mask1 = maskBadFrequencies(dp1)
-    mask2 = maskBadFrequencies(dp2)
-    dp1_ = copy.deepcopy(dp1)
-    dp1_.spectrum_data.data[mask1, :] = np.nanmean(dp1_.spectrum_data.data)     # TODO np.nan
-    dp2_ = copy.deepcopy(dp2)
-    dp2_.spectrum_data.data[mask2, :] = np.nanmean(dp2_.spectrum_data.data)
-
-    cor = correlation.Correlation(dp1_, dp2_, day=day,
-                                  _flatten=True, _bin_time=True, _bin_freq=True, _no_background=True,
-                                  _r_window=45)
-    cor.calculatePeaks()
-    print(cor.fileName())
-    print(cor.peaks)
-
-    dp11 = data.createFromTime(year, month, day, time2, obs1, spec_range)
-    dp12 = data.createFromTime(year, month, day, time, obs1, spec_range)
-    dp21 = data.createFromTime(year, month, day, time2, obs2, spec_range)
-    dp22 = data.createFromTime(year, month, day, time, obs2, spec_range)
-    dp1 = dp11 + dp12
-    dp2 = dp21 + dp22
-    mask1 = maskBadFrequencies(dp1)
-    mask2 = maskBadFrequencies(dp2)
-    dp1_ = copy.deepcopy(dp1)
-    dp1_.spectrum_data.data[mask1, :] = np.nanmean(dp1_.spectrum_data.data)     # TODO np.nan
-    dp2_ = copy.deepcopy(dp2)
-    dp2_.spectrum_data.data[mask2, :] = np.nanmean(dp2_.spectrum_data.data)
-
-    dp1_.createSummedCurve([dp1.spectrum_data.freq_axis[-1], dp1.spectrum_data.freq_axis[0]])
-    dp2_.createSummedCurve([dp2.spectrum_data.freq_axis[-1], dp2.spectrum_data.freq_axis[0]])
-    dp1_.subtract_background()
-    dp2_.subtract_background()
-    dp1_.flattenSummedCurve()
-    dp2_.flattenSummedCurve()
-
-    return dp1_, dp2_, cor   # , cor1
+    dp1.createSummedCurve([dp1.spectrum_data.freq_axis[-1], dp1.spectrum_data.freq_axis[-1]])
+    dp2.createSummedCurve([dp2.spectrum_data.freq_axis[-1], dp2.spectrum_data.freq_axis[-1]])
+    dp1.flattenSummedCurve(rolling_window=correlation.default_flatten_window)
+    dp2.flattenSummedCurve(rolling_window=correlation.default_flatten_window)
+    return dp1, dp2, cor
 
 
 def plotDatapoint(dp1):
@@ -277,16 +125,15 @@ def plotDatapoint(dp1):
                   dp1.spectrum_data.end.strftime("%Y-%m-%dT%H:%M:%S.%z"), dtype='datetime64[s]').astype(datetime)
     mt = mdates.date2num((t[0], t[-1]))
 
-    a = 19
-    b = 12
-    fig, ax = plt.subplots(figsize=(a, b))
+    fig, ax = plt.subplots(figsize=(plot_size_x, plot_size_y))
     fig.suptitle(f"{dp1.day}.{dp1.month}.{dp1.year} Radio Flux Data {dp1.observatory.name}")
     ax.set_xlabel("Time")
     ax.set_ylabel("Frequency [MHz]")
-    plt.imshow(dp1.spectrum_data.data, extent=[mt[0], mt[1], 0, int(900 / a * b)], aspect='auto', origin='lower')
+    plt.imshow(dp1.spectrum_data.data, extent=[mt[0], mt[1], 0, int(900 / plot_size_x * plot_size_y)],
+               aspect='auto', origin='lower')
     cbar = plt.colorbar(location='right', anchor=(.15, 0.0))
     cbar.set_label("Intensity")
-    ax.set_yticks([int(900 / a * b / 9) * i for i in range(0, 10)],
+    ax.set_yticks([int(900 / plot_size_x * plot_size_y / 9) * i for i in range(0, 10)],
                   np.around(dp1.spectrum_data.freq_axis[::int(len(dp1.spectrum_data.freq_axis) / 9)], 1))
     ax.xaxis.set_major_locator(mdates.MinuteLocator(interval=1))
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
@@ -297,8 +144,6 @@ def plotDatapoint(dp1):
 
 
 def plotEverything(dp1, dp2, cor):
-    const.setupMatPlotLib()
-
     if cor.day == dp1.day:
         year = dp1.year
         month = dp1.month
@@ -323,17 +168,17 @@ def plotEverything(dp1, dp2, cor):
                   dp1.spectrum_data.end.strftime("%Y-%m-%dT%H:%M:%S.%z"), dtype='datetime64[s]').astype(datetime)
     mt = mdates.date2num((t[0], t[-1]))
 
-    a = 19
-    b = 12
-    fig, ax = plt.subplots(figsize=(a, b))
-    fig.suptitle(f"{day}.{month}.{year} Radio Flux Data {dp1.observatory.name} and overlap with {cor.data_point_2.observatory.name}")
+    fig, ax = plt.subplots(figsize=(plot_size_x, plot_size_y))
+    fig.suptitle(f"{day}.{month}.{year} Radio Flux Data "
+                 f"{dp1.observatory.name} and overlap with {cor.data_point_2.observatory.name}")
     ax.set_xlabel("Time")
     ax.set_ylabel("Frequency [MHz]")
-    plt.imshow(dp1.spectrum_data.data, extent=[mt[0],mt[1], 0, int(900/a*b)], aspect='auto', origin='lower')
-    cbar = plt.colorbar(location='right', anchor=(.15,0.0))
+    plt.imshow(dp1.spectrum_data.data, extent=[mt[0], mt[1], 0, int(900/plot_size_x * plot_size_y)],
+               aspect='auto', origin='lower')
+    cbar = plt.colorbar(location='right', anchor=(.15, 0.0))
     cbar.set_label("Intensity")
-    ax.set_yticks([int(900/a*b/9) * i for i in range(0,10)],
-                  np.around(dp1.spectrum_data.freq_axis[::int(len(dp1.spectrum_data.freq_axis)/9)],1))
+    ax.set_yticks([int(900/plot_size_x * plot_size_y/9) * i for i in range(0, 10)],
+                  np.around(dp1.spectrum_data.freq_axis[::int(len(dp1.spectrum_data.freq_axis)/9)], 1))
     ax.xaxis.set_major_locator(mdates.MinuteLocator(interval=1))
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
     plt.xticks(rotation=60)
@@ -347,7 +192,8 @@ def plotEverything(dp1, dp2, cor):
     dataframe = pd.DataFrame()
     dataframe['data'] = _data
     dataframe = dataframe.set_index(time_axis_plot)
-    plot_cor = ax2.plot(dataframe, color="red", linewidth=2, label=f"Correlation: {cor.data_point_1.observatory.name} | {cor.data_point_2.observatory.name}")
+    plot_cor = ax2.plot(dataframe, color="red", linewidth=2,
+                        label=f"Correlation: {cor.data_point_1.observatory.name} | {cor.data_point_2.observatory.name}")
     ax2.set_ylabel("Correlation")
 
     ax3 = plt.twinx(ax)
@@ -380,7 +226,7 @@ def plotEverything(dp1, dp2, cor):
 
     _peaks_start = []
     _peaks_end = []
-    for i in cor.peaks:
+    for j, i in enumerate(cor.peaks):
         start = mdates.date2num(i.time_start-timedelta(seconds=unscientific_shift))
         end = mdates.date2num(i.time_end-timedelta(seconds=unscientific_shift))
         _peaks_start.append(start)
@@ -388,7 +234,9 @@ def plotEverything(dp1, dp2, cor):
 
         plot_b_start = plt.axvline(start, color="darkgrey", linestyle='--', label='Burst start')
         plot_b_end = plt.axvline(end, color="black", linestyle='--', label='Burst end')
-        plots.extend([plot_b_start, plot_b_end])
+
+        if not j:
+            plots.extend([plot_b_start, plot_b_end])
 
     labs = [i.get_label() for i in plots]
     plt.legend(plots, labs, loc="lower right")     # -> TODO position
@@ -396,93 +244,16 @@ def plotEverything(dp1, dp2, cor):
     plt.show()
 
 
-def peaksInData(dp1, dp2):
+def peaksInData(dp1, dp2, plot=False, peak_limit=2):
+    """
+
+    """
     x1 = np.array(dp1.summedCurve)
-    lim1 = 3 * np.nanstd(x1)
+    lim1 = peak_limit * np.nanstd(x1)
     scipy_peaks1 = find_peaks(x1, height=lim1)[0]
 
     x2 = np.array(dp2.summedCurve)
-    lim2 = 3 * np.nanstd(x2)
-    scipy_peaks2 = find_peaks(x2, height=lim2)[0]
-
-    _time_start = dp1.spectrum_data.start.timestamp()
-    _time1_ = dp1.spectrum_data.time_axis
-    _time2_ = dp2.spectrum_data.time_axis
-
-    a = 19
-    b = 12
-    fig, ax = plt.subplots(figsize=(a, b))
-    plt.xlabel("Time")
-    plt.ylabel("Summed Intensity")
-
-    time_axis_plot1 = []
-    for i in _time1_:
-        time_axis_plot1.append(datetime.fromtimestamp(_time_start + i).strftime("%Y %m %d %H:%M:%S"))
-    time_axis_plot1 = pd.to_datetime(time_axis_plot1)
-    dataframe1 = pd.DataFrame()
-    dataframe1['data'] = dp1.summedCurve
-    dataframe1 = dataframe1.set_index(time_axis_plot1)
-    plt.plot(dataframe1, color="red", linewidth=2, label=f"{dp1.observatory}")
-    for i in scipy_peaks1:
-        plt.plot(mdates.date2num(datetime.fromtimestamp(_time_start + i / 4)), x1[i], "x", color="red")
-
-    time_axis_plot2 = []
-    for i in _time2_:
-        time_axis_plot2.append(datetime.fromtimestamp(_time_start + i).strftime("%Y %m %d %H:%M:%S"))
-    time_axis_plot2 = pd.to_datetime(time_axis_plot2)
-    dataframe2 = pd.DataFrame()
-    dataframe2['data'] = dp2.summedCurve
-    dataframe2 = dataframe2.set_index(time_axis_plot2)
-    plt.plot(dataframe2, color="blue", linewidth=1, label=f"{dp2.observatory}")
-    for i in scipy_peaks2:
-        plt.plot(mdates.date2num(datetime.fromtimestamp(_time_start + i / 4)), x2[i], "x", color="blue")
-
-    new3 = []
-    peaks = []
-    if len(scipy_peaks1) and len(scipy_peaks2):
-        new = [scipy_peaks1[0]]
-        for kk in scipy_peaks1:
-            if all(np.around(kk - new, -2)):
-                new.append(kk)
-
-        new2 = [scipy_peaks2[0]]
-        for kk in scipy_peaks2:
-            if all(np.around(kk - new2, -2)):
-                new2.append(kk)
-
-        for kk in new:
-            if any(np.around(kk - new2, -2) == False):
-                new3.append(kk)
-        print(new3)
-        for i in new3:
-            peak = datetime.fromtimestamp(_time_start + i / 4).strftime("%Y %m %d %H:%M:%S")
-            peaks.append(peak)
-            print(peak)
-
-    for i in new3:
-        if not new3.index(i):
-            plt.axvline(mdates.date2num(datetime.fromtimestamp(_time_start + i / 4)), linestyle="--", color="grey",
-                        label="Possible Peak")
-        else:
-            plt.axvline(mdates.date2num(datetime.fromtimestamp(_time_start + i / 4)), linestyle="--", color="grey")
-
-    ax.xaxis.set_major_locator(mdates.MinuteLocator(interval=2))
-    ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
-    plt.xlim([mdates.date2num(time_axis_plot1[0]), mdates.date2num(time_axis_plot1[-1])])
-    plt.xticks(rotation=45)
-    plt.legend(loc="upper left")
-    plt.show()
-
-    return peaks
-
-
-def peaksInDataNoPlot(dp1, dp2):
-    x1 = np.array(dp1.summedCurve)
-    lim1 = 3 * np.nanstd(x1)
-    scipy_peaks1 = find_peaks(x1, height=lim1)[0]
-
-    x2 = np.array(dp2.summedCurve)
-    lim2 = 3 * np.nanstd(x2)
+    lim2 = peak_limit * np.nanstd(x2)
     scipy_peaks2 = find_peaks(x2, height=lim2)[0]
 
     _time_start = dp1.spectrum_data.start.timestamp()
@@ -499,39 +270,77 @@ def peaksInDataNoPlot(dp1, dp2):
         for kk in scipy_peaks2:
             if all(np.around(kk - new2, -2)):
                 new2.append(kk)
-
         for kk in new:
-            if any(np.around(kk - new2, -2) == False):
+            if not all(np.around(kk - new2, -2)):
                 new3.append(kk)
+        for i in new3:
+            peak = datetime.fromtimestamp(_time_start + i / 4)
+            event = events.Event(peak, probability=correlation.CORRELATION_MIN)
+            peaks.append(event)
+    events_ = events.EventList(peaks)
+
+    if plot:
+        _time1_ = dp1.spectrum_data.time_axis
+        _time2_ = dp2.spectrum_data.time_axis
+        fig, ax = plt.subplots(figsize=(plot_size_x, plot_size_y))
+        plt.xlabel("Time")
+        plt.ylabel("Summed Intensity")
+
+        time_axis_plot1 = []
+        for i in _time1_:
+            time_axis_plot1.append(datetime.fromtimestamp(_time_start + i).strftime("%Y %m %d %H:%M:%S"))
+        time_axis_plot1 = pd.to_datetime(time_axis_plot1)
+        dataframe1 = pd.DataFrame()
+        dataframe1['data'] = dp1.summedCurve
+        dataframe1 = dataframe1.set_index(time_axis_plot1)
+        plt.plot(dataframe1, color="red", linewidth=2, label=f"{dp1.observatory}")
+        for i in scipy_peaks1:
+            plt.plot(mdates.date2num(datetime.fromtimestamp(_time_start + i / 4)), x1[i], "x", color="red")
+
+        time_axis_plot2 = []
+        for i in _time2_:
+            time_axis_plot2.append(datetime.fromtimestamp(_time_start + i).strftime("%Y %m %d %H:%M:%S"))
+        time_axis_plot2 = pd.to_datetime(time_axis_plot2)
+        dataframe2 = pd.DataFrame()
+        dataframe2['data'] = dp2.summedCurve
+        dataframe2 = dataframe2.set_index(time_axis_plot2)
+        plt.plot(dataframe2, color="blue", linewidth=1, label=f"{dp2.observatory}")
+        for i in scipy_peaks2:
+            plt.plot(mdates.date2num(datetime.fromtimestamp(_time_start + i / 4)), x2[i], "x", color="blue")
 
         for i in new3:
-            peak = datetime.fromtimestamp(_time_start + i / 4).strftime("%Y %m %d %H:%M:%S")
-            peaks.append(peak)
-            print(peak)
+            if not new3.index(i):
+                plt.axvline(mdates.date2num(datetime.fromtimestamp(_time_start + i / 4)), linestyle="--", color="grey",
+                            label="Possible Peak")
+            else:
+                plt.axvline(mdates.date2num(datetime.fromtimestamp(_time_start + i / 4)), linestyle="--", color="grey")
 
-    return peaks
+        ax.xaxis.set_major_locator(mdates.MinuteLocator(interval=2))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+        plt.xlim([mdates.date2num(time_axis_plot1[0]), mdates.date2num(time_axis_plot1[-1])])
+        plt.xticks(rotation=45)
+        plt.legend(loc="upper left")
+        plt.show()
+
+    print(events_)
+    return events_
+
+
+def filename(year, month):
+    return const.path_data + f"results/{year}/" + f"{year}_{str(month).zfill(2)}_unsearched_obs++"
 
 
 def saveData(event_list: events.EventList, year, month):
     """
-    TODO placeholder name
     """
-    with open(const.path_data + f"{year}_{month}_unsearched_obs++", "wb") as file:
+    with open(filename(year, month), "wb") as file:
         pickle.dump(event_list, file)
 
 
 def loadData(year, month):
     """
-    TODO placeholder name
     """
-    with open(const.path_data + f"{year}_{month}_unsearched_obs++", "rb") as read_file:
+    with open(filename(year, month), "rb") as read_file:
         loaded_data = pickle.load(read_file)
 
     return loaded_data
-
-"""
-testpoint = copy.deepcopy(dp1)
-testpoint.spectrum_data.data[mask,:] = np.nan
-testpoint.createSummedCurve([45,81])
-testpoint.flattenSummedCurve()
-"""

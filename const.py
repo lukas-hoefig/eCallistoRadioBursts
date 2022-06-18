@@ -8,6 +8,7 @@ path_script = os.getcwd().replace("\\", "/") + "/"
 path_data = "eCallistoData/"
 path_plots = "eCallistoPlots/"
 DATA_POINTS_PER_SECOND = 4
+LENGTH_FILES_MINUTES = 15
 BIN_FACTOR = 4
 ROLL_WINDOW = 180
 even_time_format = "%H:%M:%S"

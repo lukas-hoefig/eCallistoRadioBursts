@@ -55,7 +55,7 @@ class DataPoint:
         self.second = int(reader[2][4:])
 
         self.spectral_range_id = reader[3][:2]
-        self.spectral_range = self.observatory.getSpectralRange(self.spectral_range_id)
+        self.spectral_range = self.observatory.getSpectralRange(self.spectral_range_id)   # TODO: true values
         if self.spectral_range is None:
             raise ValueError("File has unknown/invalid Value for Spectral Range ID / FocusCode")
 
@@ -230,11 +230,15 @@ class DataPoint:
         self.background_subtracted = True
 
     def flattenSummedCurve(self, rolling_window=CURVE_FLATTEN_WINDOW):
-        median = np.array(pd.Series(self.summedCurve).rolling(rolling_window).median())
+        if self.number_values > 3 * const.LENGTH_FILES_MINUTES * 60 * const.DATA_POINTS_PER_SECOND:
+            median = np.array(pd.Series(self.summedCurve).rolling(rolling_window).median())
+            self.flattened_window = rolling_window
+        else:
+            median = np.nanmedian(self.summedCurve)
+            self.flattened_window = 0
         arr = np.array(self.summedCurve)
         self.summedCurve = arr - median
         self.flattened = True
-        self.flattened_window = rolling_window
 
     def plotSummedCurve(self, ax, peaks=None):
         plotCurve(self.spectrum_data.time_axis, self.summedCurve, self.spectrum_data.start.timestamp(),
@@ -423,7 +427,7 @@ def fitTimeFrameDataSample(_data_point1, _data_point2):
 def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, axis, _plot=True, peaks=None, new_ax=False):
     plotCurve.curve += 1
     if _bin_time:
-        data_per_second = DATA_POINTS_PER_SECOND / _bin_time_width
+        data_per_second = DATA_POINTS_PER_SECOND / _bin_time_width                                  # TODO
     else:
         data_per_second = DATA_POINTS_PER_SECOND
     time_axis_plot = []
