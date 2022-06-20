@@ -11,6 +11,7 @@ from typing import List, Union
 
 import const
 
+MAX_STATIONS = 3
 TIME_TOLERANCE = 60
 LIMIT = 0.70
 DATA_POINTS_PER_SECOND = const.DATA_POINTS_PER_SECOND
@@ -25,6 +26,10 @@ class Time(datetime):
     def __repr__(self):
         return self.__str__()
 
+
+def time(datetime_: datetime):
+    return Time(datetime_.year, datetime_.month, datetime_.day, 
+                datetime_.hour, datetime_.minute, datetime_.second)
 
 class Event:
     """
@@ -104,11 +109,20 @@ class EventList:
             if not i.inList(temp.events):
                 temp.events.append(i)
             else:
-                temp.events[i.inList(temp.events)[1]].probability = \
-                    max(temp.events[i.inList(temp.events)[1]].probability, i.probability)
-                temp.events[i.inList(temp.events)[1]].stations += i.stations
+                if i.probability >= temp.events[i.inList(temp.events)[1]].probability:
+                    temp.events[i.inList(temp.events)[1]].probability = i.probability
+                    
+                    for j in i.stations:
+                        if j not in temp.events[i.inList(temp.events)[1]].stations and \
+                                    len(temp.events[i.inList(temp.events)[1]].stations) >= MAX_STATIONS:
+                            temp.events[i.inList(temp.events)[1]].stations.pop(0)
+                        temp.events[i.inList(temp.events)[1]].stations += j
+                else:
+                    for j in i.stations:
+                        if j not in temp.events[i.inList(temp.events)[1]].stations and \
+                                    len(temp.events[i.inList(temp.events)[1]].stations) >= MAX_STATIONS:
+                            temp.events[i.inList(temp.events)[1]].stations.append(j)
                 temp.events[i.inList(temp.events)[1]].stations = list(set(temp.events[i.inList(temp.events)[1]].stations))
-                # TODO stations bugged
         return temp
 
     def __radd__(self, other):
@@ -119,10 +133,19 @@ class EventList:
         if not other.inList(temp.events):
             temp.events.append(other)
         else:
-            temp.events[other.inList(temp.events)[1]].probability = \
-                max(temp.events[other.inList(temp.events)[1]].probability, other.probability)
-            temp.events[other.inList(temp.events)[1]].stations += other.stations
-            temp.events[other.inList(temp.events)[1]].stations = list(set(temp.events[other.inList(temp.events)[1]].stations))
+            if other.probability >= temp.events[other.inList(temp.events)[1]].probability:
+                temp.events[other.inList(temp.events)[1]].probability = other.probability
+            
+                for j in other.stations:
+                    if j not in temp.events[other.inList(temp.events)[1]].stations and \
+                                        len(temp.events[other.inList(temp.events)[1]].stations) >= MAX_STATIONS:
+                        temp.events[other.inList(temp.events)[1]].stations.pop(0)
+                    temp.events[other.inList(temp.events)[1]].stations.append(j)
+            else:
+                for j in other.stations:
+                    if j not in temp.events[other.inList(temp.events)[1]].stations and \
+                                len(temp.events[other.inList(temp.events)[1]].stations) >= MAX_STATIONS:
+                        temp.events[other.inList(temp.events)[1]].stations.append(j)
         return temp
 
     def __sub__(self, other):

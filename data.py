@@ -14,6 +14,7 @@ from typing import List, Union
 import const
 import observatories
 import download
+import events
 
 path_script = const.path_script
 path_data = const.path_data
@@ -332,6 +333,43 @@ def createFromTime(_year, _month, _day, _time, _observatory, _spectral_range: Un
         file_ = file
 
     return DataPoint(file_)
+
+
+def createFromEvent(event: events.Event, station=None):
+    """
+    TODO 
+    """
+    time_start = event.time_start
+    time_end = event.time_end
+    year = event.time_start.year
+    month = event.time_start.month
+    day = event.time_start.day
+    if station and station in event.stations:
+        obs = station
+    elif station and not event.stations:
+        obs = station
+    else:
+        obs = event.stations[0]
+
+    dp = createFromTime(year, month, day, str(time_start), obs, const.spectral_range)
+    i = 1
+    while dp.spectrum_data.end < time_end:
+        new_time = time_start + timedelta(minutes=const.LENGTH_FILES_MINUTES * i)
+        dp += createFromTime(new_time.year, new_time.month, new_time.day, str(events.time(new_time)), obs, const.spectral_range)
+        i += 1
+    
+    if (event.time_start - event.time_end).total_seconds() < 20:
+        delta = 10
+    else:
+        delta = 0
+    del_start = int((event.time_start - dp.spectrum_data.start - timedelta(seconds=(delta))).total_seconds()*const.DATA_POINTS_PER_SECOND)
+    del_end = int((event.time_end - dp.spectrum_data.start + timedelta(seconds=(delta))).total_seconds()*const.DATA_POINTS_PER_SECOND)
+    if del_start < 0:
+        del_start = 0
+    dp.spectrum_data.data = dp.spectrum_data.data[:,del_start:del_end]
+    dp.spectrum_data.start = event.time_start
+    
+    return dp
 
 
 def frqProfile(_list: List[DataPoint]):

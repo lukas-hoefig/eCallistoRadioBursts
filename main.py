@@ -139,11 +139,11 @@ def testRun(_year, _month, _day, _days, spec_range=None,
         print("mine")
         print(events)
         print("reference SWPC")
-        print(reference.referenceSWPC(year, month, day))
+        print(reference.listSWPC(year, month, day))
         print("reference Monstein")
-        print(reference.referenceMonstein(year, month, day))
+        print(reference.listMonstein(year, month, day))
         print("reference Monstein with 2 or more stations")
-        print(reference.referenceMonstein2orMore(year, month, day))
+        print(reference.listMonstein2orMore(year, month, day))
 
 
 if __name__ == '__main__':

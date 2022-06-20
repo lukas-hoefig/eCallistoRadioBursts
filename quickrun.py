@@ -39,13 +39,13 @@ for i in obs:
         pass
 
 
-ref1 = reference.referenceMonstein(year, month, day)
+ref1 = reference.listMonstein(year, month, day)
 
 print("monstein")
 for i in ref1:
     print(i, i.stations)
 
-ref2 = reference.referenceSWPC(year, month, day)
+ref2 = reference.listSWPC(year, month, day)
 
 print("swpc")
 print(ref2)

@@ -12,17 +12,16 @@ path_data = const.path_data
 reference_header_length = 12
 
 
-def referenceFileName(year, month, day, next_folder=False):
-    return path_data + "reference/{}_events/{}{}{}events.txt".format(str(year + next_folder), str(year),
-                                                                     str(month).zfill(2), str(day).zfill(2))
+def fileNameSWPC(year, month, day, next_folder=False):
+    return f"{path_data}reference/{year + next_folder}_events/{year}{str(month).zfill(2)}{str(day).zfill(2)}events.txt"
 
 
-def referenceSWPC(year, month, day):
+def listSWPC(year, month, day):
     try:
-        file = referenceFileName(year, month, day)
+        file = fileNameSWPC(year, month, day)
         f = open(file)
     except FileNotFoundError:
-        file = referenceFileName(year, month, day, next_folder=True)
+        file = fileNameSWPC(year, month, day, next_folder=True)
         f = open(file)
     lines_read = f.readlines()
     lines = []
@@ -56,17 +55,21 @@ def referenceSWPC(year, month, day):
     return events.EventList(references)
 
 
-def urlReferenceMonstein(year: int, month: int):
+def urlMonstein(year: int, month: int):
     year = str(year)
     month = str(month).zfill(2)
     return f"http://soleil.i4ds.ch/solarradio/data/BurstLists/2010-yyyy_Monstein/{year}/e-CALLISTO_{year}_{month}.txt"
 
 
-def referenceMonstein(year: int, month: int, day: int):
+def fileNameMonstein(year, month):
+    return f"{path_data}reference/{str(year)}_monstein/{str(year)}{str(month).zfill(2)}events.txt"
+
+
+def listMonstein(year: int, month: int, day: int):
     """
     TODO: download txt , check if file exist, only then check url
     """
-    url = urlReferenceMonstein(year, month)
+    url = urlMonstein(year, month)
     file = urllib.request.urlopen(url)
     event_list = events.EventList([])
     for line in file:
@@ -97,8 +100,8 @@ def referenceMonstein(year: int, month: int, day: int):
     return event_list
 
 
-def referenceMonstein2orMore(year: int, month: int, day: int):
-    url = urlReferenceMonstein(year, month)
+def listMonstein2orMore(year: int, month: int, day: int):
+    url = urlMonstein(year, month)
     file = urllib.request.urlopen(url)
     event_list = events.EventList([])
     for line in file:
