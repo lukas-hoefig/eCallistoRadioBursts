@@ -22,6 +22,7 @@ plot_size_y = 12
 mask_frq_limit = 1.5
 
 # TODO make plot() its own function - code duplication
+# TODO correlation always from -.4 to 1 !!!!!
 
 
 def maskBadFrequencies(dp1, limit=mask_frq_limit):
@@ -69,7 +70,7 @@ def calcPoint(year: int, month: int, day: int, time: Union[str, datetime],
               obs1: observatories.Observatory, obs2: observatories.Observatory, spec_range=const.spectral_range,
               mask_frq=False, limit_frq=mask_frq_limit):
     """
-
+    TODO -> corrupt data -> skip 
     """
     if isinstance(time, datetime):
         time_ = time.strftime("%H:%M:%S")
@@ -78,9 +79,9 @@ def calcPoint(year: int, month: int, day: int, time: Union[str, datetime],
         time_ = time
         date = datetime(year, month, day, int(time_[:2]), int(time_[3:5]), int(time_[6:]))
 
-    blind_spot = (correlation.default_r_window / correlation.default_time_window) / 60
+    blind_spot = (correlation.default_r_window / correlation.default_time_window) * 2
 
-    if int(time_[3:5]) % const.LENGTH_FILES_MINUTES < blind_spot:
+    if (int(time_[3:5]) * 60 + int(time_[6:]))  % const.LENGTH_FILES_MINUTES * 60 < blind_spot:
         date2 = date - timedelta(minutes=const.LENGTH_FILES_MINUTES)
         time2 = date2.strftime("%H:%M:%S")
         dp11 = data.createFromTime(year, month, day, time2, obs1, spec_range)

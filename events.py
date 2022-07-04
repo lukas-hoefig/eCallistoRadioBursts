@@ -31,6 +31,7 @@ def time(datetime_: datetime):
     return Time(datetime_.year, datetime_.month, datetime_.day, 
                 datetime_.hour, datetime_.minute, datetime_.second)
 
+
 class Event:
     """
     """
@@ -116,7 +117,7 @@ class EventList:
                         if j not in temp.events[i.inList(temp.events)[1]].stations and \
                                     len(temp.events[i.inList(temp.events)[1]].stations) >= MAX_STATIONS:
                             temp.events[i.inList(temp.events)[1]].stations.pop(0)
-                        temp.events[i.inList(temp.events)[1]].stations += j
+                        temp.events[i.inList(temp.events)[1]].stations.append(j)
                 else:
                     for j in i.stations:
                         if j not in temp.events[i.inList(temp.events)[1]].stations and \

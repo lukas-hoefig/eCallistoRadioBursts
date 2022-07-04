@@ -192,9 +192,9 @@ class Correlation:
         setupSummedCurve(self.data_point_1, self.frequency_range, self.flatten, self.flatten_window)
         setupSummedCurve(self.data_point_2, self.frequency_range, self.flatten, self.flatten_window)
 
-    def plotCurve(self, ax, peaks=None):
+    def plotCurve(self, ax, peaks=None, label=None):
         data.plotCurve(self.time_axis, self.data_curve, self.time_start, self.bin_time, self.bin_time_width,
-                       ax, peaks=peaks, new_ax=False)
+                       ax, peaks=peaks, new_ax=False, label=label)
 
     def modulateData(self):
         if self.bin_time:

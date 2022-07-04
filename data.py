@@ -63,6 +63,8 @@ class DataPoint:
         self.path = path_data + str(self.year) + "/" + str(self.month).zfill(2) + "/" + str(self.day).zfill(2) + "/"
 
         self.readFile()
+        if not self:
+            return
         self.cleanUpData()
 
     def __add__(self, other):
@@ -95,6 +97,9 @@ class DataPoint:
     def __repr__(self):
         return self.file_name
 
+    def __bool__(self):
+        return bool(self.spectrum_data)
+
     def readFile(self):
         """
         reads data from file
@@ -110,8 +115,11 @@ class DataPoint:
         if self.hour == 23 and self.minute > 30:
             self.spectrum_data = self.readFalseDateFile()
         else:
-            self.spectrum_data = CallistoSpectrogram.read(file)
-
+            try:
+                self.spectrum_data = CallistoSpectrogram.read(file)
+            except TypeError:
+                self.spectrum_data = None
+                return
         self.number_values = len(self.spectrum_data.time_axis)
 
     def readFalseDateFile(self):
@@ -126,12 +134,20 @@ class DataPoint:
             date_end_proper = date_end_proper + timedelta(days=1)
             date_end_proper_str = date_end_proper.strftime("%Y/%m/%d")
         else:
-            return CallistoSpectrogram.read(self.path + self.file_name)
+            try:
+
+                return CallistoSpectrogram.read(self.path + self.file_name)
+            except TypeError:
+                return None
 
         file_copy[0].header['DATE-END'] = date_end_proper_str
         file_copy[0].header['TIME-END'] = time_end_proper
         file_copy.writeto(self.path + self.file_name, overwrite=True)
-        return CallistoSpectrogram.read(self.path + self.file_name)
+
+        try:
+            return CallistoSpectrogram.read(self.path + self.file_name)
+        except TypeError:
+            return None
 
     def cleanUpData(self):
         """
@@ -241,9 +257,9 @@ class DataPoint:
         self.summedCurve = arr - median
         self.flattened = True
 
-    def plotSummedCurve(self, ax, peaks=None):
+    def plotSummedCurve(self, ax, peaks=None, label=None):
         plotCurve(self.spectrum_data.time_axis, self.summedCurve, self.spectrum_data.start.timestamp(),
-                  self.binned_time, self.binned_time_width, ax, peaks=peaks, new_ax=True)
+                  self.binned_time, self.binned_time_width, ax, peaks=peaks, new_ax=True, label=label)
 
     def fileName(self):
         return "{}_{}_{}_{}{}{}{}{}.png"\
@@ -462,7 +478,8 @@ def fitTimeFrameDataSample(_data_point1, _data_point2):
     return data_merged1, data_merged2
 
 
-def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, axis, _plot=True, peaks=None, new_ax=False):
+def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, axis, _plot=True, peaks=None, new_ax=False,
+              label=None):
     plotCurve.curve += 1
     if _bin_time:
         data_per_second = DATA_POINTS_PER_SECOND / _bin_time_width                                  # TODO
@@ -494,7 +511,11 @@ def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, axis, _plot
     else:
         dataframe = dataframe.set_index(time_axis_plot)
         plt.xticks(rotation=90)
-        plt.plot(dataframe, color=const.getColor(), linewidth=1)
+
+        if label:
+            plt.plot(dataframe, color=const.getColor(), linewidth=1, label=label)
+        else:
+            plt.plot(dataframe, color=const.getColor(), linewidth=1)
 
         if peaks:
             if type(peaks) == str:
