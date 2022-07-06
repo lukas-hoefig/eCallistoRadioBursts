@@ -257,9 +257,9 @@ class DataPoint:
         self.summedCurve = arr - median
         self.flattened = True
 
-    def plotSummedCurve(self, ax, peaks=None, label=None):
-        plotCurve(self.spectrum_data.time_axis, self.summedCurve, self.spectrum_data.start.timestamp(),
-                  self.binned_time, self.binned_time_width, ax, peaks=peaks, new_ax=True, label=label)
+    def plotSummedCurve(self, ax, peaks=None, label=None, color=None):
+        return plotCurve(self.spectrum_data.time_axis, self.summedCurve, self.spectrum_data.start.timestamp(),
+                  self.binned_time, self.binned_time_width, ax, peaks=peaks, new_ax=True, label=label, color=color)
 
     def fileName(self):
         return "{}_{}_{}_{}{}{}{}{}.png"\
@@ -399,7 +399,7 @@ def frqProfile(_list: List[DataPoint]):
 
 
 def cutFreqProfile(day: List[DataPoint], frq_profile):
-    return [i for i in day if (i.spectrum_data.header["FRQFILE"] == frq_profile)]
+    return [i for i in day if (i.spectrum_data and i.spectrum_data.header["FRQFILE"] == frq_profile)]
 
 
 def cutDayBefore(day: List[DataPoint], hour_limit: datetime):
@@ -479,7 +479,7 @@ def fitTimeFrameDataSample(_data_point1, _data_point2):
 
 
 def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, axis, _plot=True, peaks=None, new_ax=False,
-              label=None):
+              label=None, color=None):
     plotCurve.curve += 1
     if _bin_time:
         data_per_second = DATA_POINTS_PER_SECOND / _bin_time_width                                  # TODO
@@ -492,14 +492,18 @@ def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, axis, _plot
     time_axis_plot = pd.to_datetime(time_axis_plot)
     dataframe = pd.DataFrame()
     dataframe['data'] = _data
-
+    
+    if not color:
+        color = const.getColor()
+    
     if new_ax:
         ax = axis.twinx()
         ax.set_axis_off()
         ax.tick_params(axis='y')
         dataframe = dataframe.set_index(time_axis_plot)
         plt.xticks(rotation=90)
-        ax.plot(dataframe, color=const.getColor(), linewidth=1)
+
+        curve = ax.plot(dataframe, color=color, linewidth=1, label=label)
 
         if peaks:
             if type(peaks) == str:
@@ -512,10 +516,8 @@ def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, axis, _plot
         dataframe = dataframe.set_index(time_axis_plot)
         plt.xticks(rotation=90)
 
-        if label:
-            plt.plot(dataframe, color=const.getColor(), linewidth=1, label=label)
-        else:
-            plt.plot(dataframe, color=const.getColor(), linewidth=1)
+
+        curve = plt.plot(dataframe, color=color, linewidth=1, label=label)
 
         if peaks:
             if type(peaks) == str:
@@ -530,6 +532,6 @@ def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, axis, _plot
     # else:
     #     plt.savefig(const.path_plots + file_name)
     # plt.close()
-
+    return curve
 
 plotCurve.curve = 0

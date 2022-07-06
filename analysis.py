@@ -80,8 +80,7 @@ def calcPoint(year: int, month: int, day: int, time: Union[str, datetime],
         date = datetime(year, month, day, int(time_[:2]), int(time_[3:5]), int(time_[6:]))
 
     blind_spot = (correlation.default_r_window / correlation.default_time_window) * 2
-
-    if (int(time_[3:5]) * 60 + int(time_[6:]))  % const.LENGTH_FILES_MINUTES * 60 < blind_spot:
+    if (int(time_[3:5]) * 60. + int(time_[6:]))  % (const.LENGTH_FILES_MINUTES * 60) < 4 * blind_spot:
         date2 = date - timedelta(minutes=const.LENGTH_FILES_MINUTES)
         time2 = date2.strftime("%H:%M:%S")
         dp11 = data.createFromTime(year, month, day, time2, obs1, spec_range)
@@ -196,6 +195,7 @@ def plotEverything(dp1, dp2, cor):
     plot_cor = ax2.plot(dataframe, color="red", linewidth=2,
                         label=f"Correlation: {cor.data_point_1.observatory.name} | {cor.data_point_2.observatory.name}")
     ax2.set_ylabel("Correlation")
+    ax2.set_ylim(-0.4,1)
 
     ax3 = plt.twinx(ax)
     # ax3.spines["right"].set_position(("axes", 1.2))

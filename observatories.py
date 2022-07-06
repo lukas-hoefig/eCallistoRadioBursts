@@ -158,7 +158,7 @@ spec_range_humain = {"59": [45, 81]}   # true 45 - 450
 humain = Observatory(stat_humain, spec_range_humain, longitude=5.255388737)
 
 stat_glasgow = "GLASGOW"
-spec_range_glasgow = {"01": [45, 81]}   # true - 45 - 450
+spec_range_glasgow = {"01": [45, 81], "59": [45, 81]}   # true - 45 - 450
 glasgow = Observatory(stat_glasgow, spec_range_glasgow, longitude=-7.92)
 
 
