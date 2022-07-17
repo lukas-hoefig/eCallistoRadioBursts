@@ -222,7 +222,7 @@ class DataPoint:
         self.binned_time_width = width
         self.number_values = len(self.spectrum_data.time_axis)
 
-    def plot(self):
+    def plot(self): # TODO if none - skip
         """
         plots the file
         """
@@ -321,7 +321,8 @@ def createDay(_year: int, _month: int, _day: int, _observatory: observatories.Ob
         except ValueError:
             # invalid spectral range id
             pass
-    return data_day
+    data_day_return = [i for i in data_day if i]
+    return data_day_return
 
 
 def createFromTime(_year, _month, _day, _time, _observatory, _spectral_range: Union[str, List[int]]):
@@ -378,11 +379,11 @@ def createFromEvent(event: events.Event, station=None):
         delta = 10
     else:
         delta = 0
-    del_start = int((event.time_start - dp.spectrum_data.start - timedelta(seconds=(delta))).total_seconds()*const.DATA_POINTS_PER_SECOND)
-    del_end = int((event.time_end - dp.spectrum_data.start + timedelta(seconds=(delta))).total_seconds()*const.DATA_POINTS_PER_SECOND)
+    del_start = int((event.time_start - dp.spectrum_data.start - timedelta(seconds=delta)).total_seconds()*const.DATA_POINTS_PER_SECOND)
+    del_end = int((event.time_end - dp.spectrum_data.start + timedelta(seconds=delta)).total_seconds()*const.DATA_POINTS_PER_SECOND)
     if del_start < 0:
         del_start = 0
-    dp.spectrum_data.data = dp.spectrum_data.data[:,del_start:del_end]
+    dp.spectrum_data.data = dp.spectrum_data.data[:, del_start:del_end]
     dp.spectrum_data.start = event.time_start
     
     return dp

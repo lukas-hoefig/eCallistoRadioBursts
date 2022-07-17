@@ -79,6 +79,7 @@ def calcPoint(year: int, month: int, day: int, time: Union[str, datetime],
         time_ = time
         date = datetime(year, month, day, int(time_[:2]), int(time_[3:5]), int(time_[6:]))
 
+    # TODO function this -> createfromEvent -> cut front and back to 15min with peak in middle
     blind_spot = (correlation.default_r_window / correlation.default_time_window) * 2
     if (int(time_[3:5]) * 60. + int(time_[6:]))  % (const.LENGTH_FILES_MINUTES * 60) < 4 * blind_spot:
         date2 = date - timedelta(minutes=const.LENGTH_FILES_MINUTES)
@@ -87,7 +88,7 @@ def calcPoint(year: int, month: int, day: int, time: Union[str, datetime],
         dp12 = data.createFromTime(year, month, day, time_, obs1, spec_range)
         dp21 = data.createFromTime(year, month, day, time2, obs2, spec_range)
         dp22 = data.createFromTime(year, month, day, time_, obs2, spec_range)
-        dp1 = dp11 + dp12
+        dp1 = dp11 + dp12               # TODO this breaks if file corrupted
         dp2 = dp21 + dp22
     else:
         dp1 = data.createFromTime(year, month, day, time_, obs1, spec_range)

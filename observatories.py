@@ -150,7 +150,7 @@ spec_range_egypt_alexandria = {"01": [45, 81], "02": [45, 81]}
 egypt_alexandria = Observatory(stat_egypt_alexandria, spec_range_egypt_alexandria, longitude=29.5)
 
 stat_arecibo = "Arecibo-Observatory"
-spec_range_arecibo = {"01": [45, 81], "02": [45, 81]}
+spec_range_arecibo = { "02": [45, 81]} #"01": [45, 81],
 arecibo = Observatory(stat_arecibo, spec_range_arecibo, longitude=-66.75)
 
 stat_humain = "HUMAIN"
