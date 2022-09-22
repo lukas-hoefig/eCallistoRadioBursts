@@ -12,7 +12,7 @@ from astropy.io import fits
 from typing import List, Union
 
 import const
-import observatories
+import stations
 import download
 import events
 
@@ -29,7 +29,6 @@ CURVE_FLATTEN_WINDOW = 100
 
 class DataPoint:
     """
-    TODO: shift data by time interval
     """
 
     def __init__(self, file: str):
@@ -47,19 +46,16 @@ class DataPoint:
         self.file_name = reader
         reader = reader.rsplit('_')
 
-        self.observatory = observatories.getObservatory(reader[0])
         self.year = int(reader[1][:4])
         self.month = int(reader[1][4:6])
         self.day = int(reader[1][6:])
         self.hour = int(reader[2][:2])
         self.minute = int(reader[2][2:4])
         self.second = int(reader[2][4:])
+        self.date = datetime(self.year, self.month, self.day, self.hour, self.minute, self.second)
 
+        self.observatory = stations.getStationFromFile(const.pathDataDay(self.date) + file)
         self.spectral_range_id = reader[3][:2]
-        self.spectral_range = self.observatory.getSpectralRange(self.spectral_range_id)   # TODO: true values
-        if self.spectral_range is None:
-            raise ValueError("File has unknown/invalid Value for Spectral Range ID / FocusCode")
-
         self.path = path_data + str(self.year) + "/" + str(self.month).zfill(2) + "/" + str(self.day).zfill(2) + "/"
 
         self.readFile()
@@ -105,10 +101,10 @@ class DataPoint:
         reads data from file
         called by __init__
         """
-        data_available, stations = download.dataAvailable(self.year, self.month, self.day)
+        data_available, station = download.dataAvailable(self.date)
         if data_available:
-            if self.observatory.name not in stations:
-                download.downloadFullDay(self.year, self.month, self.day, [self.observatory.name])
+            if self.observatory is not None and self.observatory.name not in station:
+                download.downloadFullDay(self.date, station=[self.observatory.name])
 
         file = self.path + self.file_name
 
@@ -138,6 +134,7 @@ class DataPoint:
 
                 return CallistoSpectrogram.read(self.path + self.file_name)
             except TypeError:
+                self.spectrum_data = None
                 return None
 
         file_copy[0].header['DATE-END'] = date_end_proper_str
@@ -147,6 +144,7 @@ class DataPoint:
         try:
             return CallistoSpectrogram.read(self.path + self.file_name)
         except TypeError:
+            self.spectrum_data = None
             return None
 
     def cleanUpData(self):
@@ -170,8 +168,8 @@ class DataPoint:
         """
         if method != 'median' and method != 'mean':
             raise Exception
-        frequency_min = self.spectral_range[FREQ_MIN]
-        frequency_max = self.spectral_range[FREQ_MAX]
+        frequency_min = self.observatory.spectral_range[FREQ_MIN]
+        frequency_max = self.observatory.spectral_range[FREQ_MAX]
         data = self.spectrum_data.data.transpose()
         frequency_range = np.arange(frequency_max, frequency_min - bin_width, -bin_width)
 
@@ -222,7 +220,7 @@ class DataPoint:
         self.binned_time_width = width
         self.number_values = len(self.spectrum_data.time_axis)
 
-    def plot(self): # TODO if none - skip
+    def plot(self):  # TODO if none - skip
         """
         plots the file
         """
@@ -273,43 +271,38 @@ class DataPoint:
                         hour=self.hour, minute=self.minute, second=self.second)
 
 
-def getSpectralID(_year, _month, _day, _observatory, _spectral_range) -> str:
-    spec_ids = observatories.specIDs(_observatory, _spectral_range)
-
-    path = const.pathDataDay(_year, _month, _day)
-    files = os.listdir(path)
-    for i in spec_ids:
-        if any(file.startswith(_observatory.name) and file.endswith(i + file_ending) for file in files):
-            return i
-    raise ValueError("no valid ID found")
-
-
-def createDay(_year: int, _month: int, _day: int, _observatory: observatories.Observatory,
-              _spectral_range: Union[str, List[int]]) -> List[DataPoint]:
+def createDayList(*date, station: Union[stations.Station, str]) -> List[DataPoint]:
     """
     Creates a list with DataPoints for a specific day for a Observatory with a specific spectral range
 
-    :param _year:
-    :param _month:
-    :param _day:
-    :param _observatory:
-    :param _spectral_range: [spectral, range]
+    :param date: datetime or Ints for year, month, day
+    :param station:
     :return: List[DataPoints]
     """
-    if isinstance(_spectral_range, str):
-        spectral_id = _spectral_range
+    if isinstance(date[0], datetime):
+        date = date[0]
+    elif len(date) > 2:
+        for i in date:
+            if not isinstance(i, int):
+                raise ValueError("Arguments should be datetime or Integer")
+        date = datetime(year=date[0], month=date[1], day=date[2])
     else:
-        try:
-            spectral_id = getSpectralID(_year, _month, _day, _observatory, _spectral_range)
-        except ValueError:
-            return []
-    path = const.pathDataDay(_year, _month, _day)
+        raise ValueError("Arguments should be datetime or multiple Integer as year, month, day")
+
+    if isinstance(station, str):
+        focus_code = stations.getFocusCode(date, station=station)
+        station_name = station
+    else:
+        focus_code = station.focus_code
+        station_name = station.name
+
+    path = const.pathDataDay(date)
     files_day = sorted(os.listdir(path))
     files_observatory = []
     data_day = []
 
     for file in files_day:
-        if file.startswith(_observatory.name) and file.endswith(spectral_id + file_ending):
+        if file.startswith(station_name) and file.endswith(focus_code + file_ending):
             files_observatory.append(file)
 
     for file in files_observatory:
@@ -321,23 +314,48 @@ def createDay(_year: int, _month: int, _day: int, _observatory: observatories.Ob
         except ValueError:
             # invalid spectral range id
             pass
+        except AttributeError:
+            # data point
+            pass
     data_day_return = [i for i in data_day if i]
     return data_day_return
 
 
-def createFromTime(_year, _month, _day, _time, _observatory, _spectral_range: Union[str, List[int]]):
-    if isinstance(_spectral_range, str):
-        spectral_id = _spectral_range
+def createDay(*date, station: Union[stations.Station, str]) -> DataPoint:
+    return sum(createDayList(*date, station=station))
+
+
+def createFromTime(*time, station: Union[stations.Station, str]) -> DataPoint:
+    if isinstance(time[0], datetime):
+        time = time[0]
+    elif len(time) > 2:
+        time_values = [0 for i in range(6)]
+        for i, j in enumerate(time):
+            if isinstance(j, int):
+                time_values[i] = j
+            elif isinstance(j, str):
+                time_values[i] = int(j)
+            else:
+                raise ValueError("Arguments should be datetime or Integer")
+        time = datetime(year=time_values[0], month=time_values[1], day=time_values[2],
+                        hour=time_values[3], minute=time_values[4], second=time_values[5])
     else:
-        spectral_id = getSpectralID(_year, _month, _day, _observatory, _spectral_range)
+        raise ValueError("Arguments should be datetime or multiple Integer as year, month, day")
 
-    path = const.pathDataDay(_year, _month, _day)
+    if isinstance(station, str):
+        spectral_id = stations.getFocusCode(time, station=station)
+        station_name = station
+    else:
+        spectral_id = station.focus_code
+        station_name = station.name
+
+    path = const.pathDataDay(time)
     files = sorted(os.listdir(path))
-    time_target = int(_time[:2])*3600 + int(_time[3:5])*60 + int(_time[6:])
-    files_filtered = []
+    time_target = time.hour * 3600 + time.minute * 60 + time.second
 
+    files_filtered = []
     for file in files:
-        if file.startswith(_observatory.name) and file.endswith(spectral_id + file_ending):
+        if file.startswith(station_name) and file.endswith(spectral_id + file_ending):
             files_filtered.append(file)
 
     file_ = files_filtered[0]
@@ -368,7 +386,7 @@ def createFromEvent(event: events.Event, station=None):
     else:
         obs = event.stations[0]
 
-    dp = createFromTime(year, month, day, str(time_start), obs, const.spectral_range)
+    dp = createFromTime(year, month, day, str(time_start), station=obs)  # TODO this crashes -> whole thing as datetime, Events->datetime
     i = 1
     while dp.spectrum_data.end < time_end:
         new_time = time_start + timedelta(minutes=const.LENGTH_FILES_MINUTES * i)
@@ -411,19 +429,33 @@ def cutDayAfter(day: List[DataPoint], hour_limit: datetime):
     return [i for i in day if (i.hour <= hour_limit.hour)]
 
 
-def listDataPointDay(year, month, day, observatory: observatories.Observatory, spectral_range):
-    date = datetime(year=year, month=month, day=day, hour=int(observatory.obsTime()))
+def listDataPointDay(*date, station: stations.Station):
+    """
+
+    """
+
+    if isinstance(date[0], datetime):
+        date = date[0]
+    elif len(date) > 2:
+        for i in date:
+            if not isinstance(i, int):
+                raise ValueError("Arguments should be datetime or Integer")
+        date = datetime(year=date[0], month=date[1], day=date[2])
+    else:
+        raise ValueError("Arguments should be datetime or multiple Integer as year, month, day")
+
+    date = datetime(year=date.year, month=date.month, day=date.day, hour=int(station.obsTime()))
     date_ahead = date - timedelta(days=1)
     date_behind = date + timedelta(days=1)
     midnight = date + timedelta(hours=12)
 
-    download.downloadFullDay(date.year, date.month, date.day, [observatory])
-    download.downloadFullDay(date_ahead.year, date_ahead.month, date_ahead.day, [observatory])
-    download.downloadFullDay(date_behind.year, date_behind.month, date_behind.day, [observatory])
+    download.downloadFullDay(date, station=station)
+    download.downloadFullDay(date_ahead, station=station)
+    download.downloadFullDay(date_behind, station=station)
 
-    day_list = createDay(date.year, date.month, date.day, observatory, spectral_range)
-    date_ahead_list = createDay(date_ahead.year, date_ahead.month, date_ahead.day, observatory, spectral_range)
-    date_behind_list = createDay(date_behind.year, date_behind.month, date_behind.day, observatory, spectral_range)
+    day_list = createDayList(date, station=station)
+    date_ahead_list = createDayList(date_ahead, station=station)
+    date_behind_list = createDayList(date_behind, station=station)
 
     date_ahead_relevant = cutDayBefore(date_ahead_list, midnight)
     date_behind_relevant = cutDayAfter(date_behind_list, midnight)
@@ -479,6 +511,15 @@ def fitTimeFrameDataSample(_data_point1, _data_point2):
     return data_merged1, data_merged2
 
 
+"""
+"""
+
+# TODO: obsolete?
+
+"""
+"""
+
+
 def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, axis, _plot=True, peaks=None, new_ax=False,
               label=None, color=None):
     plotCurve.curve += 1
@@ -516,7 +557,6 @@ def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, axis, _plot
     else:
         dataframe = dataframe.set_index(time_axis_plot)
         plt.xticks(rotation=90)
-
 
         curve = plt.plot(dataframe, color=color, linewidth=1, label=label)
 

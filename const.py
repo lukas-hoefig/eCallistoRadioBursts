@@ -3,16 +3,21 @@
 
 import os
 import matplotlib.pyplot as plt
+import datetime
 
 path_script = os.getcwd().replace("\\", "/") + "/"
 path_data = "eCallistoData/"
 path_plots = "eCallistoPlots/"
+e_callisto_url = 'http://soleil.i4ds.ch/solarradio/data/2002-20yy_Callisto/'
 DATA_POINTS_PER_SECOND = 4
 LENGTH_FILES_MINUTES = 15
 BIN_FACTOR = 4
 ROLL_WINDOW = 180
 even_time_format = "%H:%M:%S"
 plot_colors = ['blue', 'red', 'purple', 'green', 'yellow']
+
+frq_limit_low = 50.
+frq_limit_high = 900.
 spectral_range = [45, 81]
 
 
@@ -39,16 +44,27 @@ def getColor():
 getColor.counter = 0
 
 
-def pathDataDay(year: int, month: int, day: int):
+def pathDataDay(*args):
     """
     creates string for the data paths <script>/eCallistoData/<year>/<month>/<day>/
 
-    :param year:
-    :param month:
-    :param day:
+    :param args: datetime, integer: year, month, day
     :return:
     """
-    return path_script + path_data + '{}/{}/{}/'.format(str(year), str(month).zfill(2), str(day).zfill(2))
+    if isinstance(args[0], datetime.datetime):
+        year = args[0].year
+        month = args[0].month
+        day = args[0].day
+    elif len(args) > 2:
+        for i in args:
+            if not isinstance(i, int):
+                raise ValueError("Arguments should be datetime or Integer")
+        year = args[0]
+        month = args[1]
+        day = args[2]
+    else:
+        raise ValueError("Arguments should be datetime or multiple Integer as year, month, day")
+    return path_script + path_data + f"{year}/{month:02}/{day:02}/"
 
 
 setupMatPlotLib()

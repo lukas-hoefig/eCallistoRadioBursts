@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from datetime import datetime as dt
+import datetime
 import radiospectra.sources.callisto as cal
 import os
 import copy
@@ -9,123 +9,162 @@ import copy
 from typing import List, Union
 
 import const
-import observatories as obs
+import stations
 
 path_script = const.path_script
 path_data = const.path_data
-date_format = "%Y %m %d %H %M %S"
 file_log = ".datalog"
 
-
-def downloadFullDay(_year: int, _month: int, _day: int,
-                    _observatories: Union[str, obs.Observatory, List[str], List[obs.Observatory]]):
+# _date -> *date, _stations - > stations
+def downloadFullDay(*date: Union[datetime.datetime, int],
+                    station: Union[str, stations.Station, List[str], List[stations.Station]]):
     """
-    downloads all available files of a day for all instruments defined in eCallistoData.py
+    downloads all available files of a day
     files will be located in
     <script>/eCallistoData/<year>/<month>/<day>/
 
-    :param _observatories: [str] or [list[str]] name-codes of observatories
-    :param _year:
-    :param _month:
-    :param _day:
+    :param _date: datetime
+    :param _stations: name-codes|Stations
     """
-    _observatories = copy.copy(_observatories)
-    if type(_observatories) == str or type(_observatories) == obs.Observatory:
-        _observatories = [_observatories]
-    for i in range(len(_observatories)):
-        if isinstance(_observatories[i], obs.Observatory):
-            _observatories[i] = _observatories[i].name
 
-    download_path = const.pathDataDay(_year, _month, _day)
-    hour_start = minute_start = second_start = "00"
-    hour_end = "23"
-    minute_end = second_end = "59"
-    time_start = dt.strptime(str(_year) + " " + str(_month) + " " + str(_day) + " "
-                             + hour_start + " " + minute_start + " " + second_start, date_format)
-    time_end = dt.strptime(str(_year) + " " + str(_month) + " " + str(_day) + " "
-                           + hour_end + " " + minute_end + " " + second_end, date_format)
+    if isinstance(date[0], datetime.datetime):
+        date = date[0]
+    elif len(date) > 2:
+        for i in date:
+            if not isinstance(i, int):
+                raise ValueError("Arguments should be datetime or Integer")
+        year = date[0]
+        month = date[1]
+        day = date[2]
+        date = datetime.datetime(year, month, day)
+    else:
+        raise ValueError("Arguments should be datetime or multiple Integer as year, month, day")
+    
+    station = copy.deepcopy(station)
+    if not isinstance(station, list):
+        station = [station]
+    for i in range(len(station)):
+        if isinstance(station[i], stations.Station):
+            station[i] = station[i].name
+    year = date.year
+    month = date.month
+    day = date.day
+    download_path = const.pathDataDay(year, month, day)
+    time_start = datetime.datetime(year, month, day)
+    time_end = datetime.datetime(year, month, day, 23, 59, 59)
 
-    data_available, observatories_old = dataAvailable(_year, _month, _day)
+    data_available, stations_old = dataAvailable(year, month, day)
     if data_available:
-        for observatory in observatories_old:
+        for i in stations_old:
             try:
-                _observatories.remove(observatory)
+                station.remove(i)
             except ValueError:
                 try:
-                    _observatories.remove(observatory.rstrip('-'))
+                    station.remove(i.rstrip('-'))
                 except ValueError:
                     pass
     if not os.path.exists(download_path):
         os.makedirs(download_path)
 
-    if _observatories:
-        url_list = cal.query(time_start, time_end, _observatories)
+    if station:
+        url_list = cal.query(time_start, time_end, station)
         cal.download(url_list, download_path)
         if data_available:
-            createLog(_year, _month, _day, _observatories, _overwrite=False)
+            createLog(date, station, _overwrite=False)
         else:
-            createLog(_year, _month, _day, _observatories)
+            createLog(date, station)
 
 
-def createLog(_year: int, _month: int, _day: int, _observatories: List[str], _overwrite=True):
+def createLog(_date: datetime.datetime, _stations: List[str], _overwrite=True):
     """
     writes/appends a log file with the names of observatories for which data is available for a specified day
 
-    :param _year:
-    :param _month:
-    :param _day:
-    :param _observatories: list[str] name-codes of observatories
+    :param _date: datetime
+    :param _stations: list[str] name-codes of observatories
     :param _overwrite: True:new log file, False:append log file
     """
-    if not len(_observatories):
+    if not _stations:
         return
-    today = dt.now()
-    if today.year == _year and today.month == _month and today.day == _day:
+    if _date == datetime.datetime.today().replace(hour=0, minute=0, second=0, microsecond=0):
         return
 
-    path_log = const.pathDataDay(_year, _month, _day)
+    path_log = const.pathDataDay(_date)
     if _overwrite:
         datalog = open(path_log + file_log, 'w')
     else:
         datalog = open(path_log + file_log, "a")
     files = os.listdir(path_log)
-    for observatory in _observatories:
-        if any(file.startswith(observatory) for file in files):
-            datalog.write(observatory + " ")
+    for station in _stations:
+        if any(file.startswith(station) for file in files):
+            datalog.write(station + " ")
         else:
-            datalog.write(observatory + "- ")
+            datalog.write(station + "- ")
     datalog.close()
 
 
-def dataAvailable(_year: int, _month: int, _day: int):
+def dataAvailable(*args) -> (bool, List[str]):
     """
-    checks whether data is available for a certain day in the local folder,
-    and returns the observatory names for which data was downloaded
+    don't call this
+    call stationsAvailable() instead
 
-    :param _year:
-    :param _month:
-    :param _day:
+    :param args: datetime, integer: year, month, day
     :return: bool, list[str] observatories for which data is available
     """
-    path_log = const.pathDataDay(_year, _month, _day)
+    if isinstance(args[0], datetime.datetime):
+        year = args[0].year
+        month = args[0].month
+        day = args[0].day
+    elif len(args) > 2:
+        for i in args:
+            if not isinstance(i, int):
+                raise ValueError("Arguments should be datetime or Integer")
+        year = args[0]
+        month = args[1]
+        day = args[2]
+    else:
+        raise ValueError("Arguments should be datetime or multiple Integer as year, month, day")
+
+    path_log = const.pathDataDay(year, month, day)
     if not os.path.exists(path_log):
         return False, None
     try:
         datalog = open(path_log + file_log, "r")
-        observatories = datalog.read().split(" ")
+        station = datalog.read().split(" ")
         datalog.close()
-        observatories.pop(-1)
-        return True, observatories
+        station.pop(-1)
+        return True, station
 
     except FileNotFoundError:
         return False, None
 
 
-def observatoriesAvailable(_year, _month, _day):
-    data_available, observatories = dataAvailable(_year, _month, _day)
-    observatories_available = []
-    for i in observatories:
-        if not i.endswith('-'):
-            observatories_available.append(obs.observatory_dict[i])
+def stationsAvailable(*args) -> (bool, List[str]):
+    """
+    checks whether data is available for a certain day in the local folder,
+    and returns the observatory names for which data was downloaded
 
-    return data_available, observatories_available
+    :param args: datetime, integer: year, month, day
+    :return: bool, list[str] observatories for which data is available
+    """
+    if isinstance(args[0], datetime.datetime):
+        year = args[0].year
+        month = args[0].month
+        day = args[0].day
+    elif len(args) > 2:
+        for i in args:
+            if not isinstance(i, int):
+                raise ValueError("Arguments should be datetime or Integer")
+        year = args[0]
+        month = args[1]
+        day = args[2]
+    else:
+        raise ValueError("Arguments should be datetime or multiple Integer as year, month, day")
+
+    date = datetime.datetime(year, month, day)
+    data_available, station = dataAvailable(date)
+    stations_available = []
+    for i in station:
+        if not i.endswith('-'):
+            stations_available.append(i)
+
+    return data_available, stations_available

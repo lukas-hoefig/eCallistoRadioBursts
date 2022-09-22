@@ -15,7 +15,7 @@ import const
 import data
 import correlation
 import events
-import observatories
+import stations
 
 plot_size_x = 19
 plot_size_y = 12
@@ -67,7 +67,7 @@ def maskBadFrequenciesPlot(dp1, limit=mask_frq_limit):
 
 
 def calcPoint(year: int, month: int, day: int, time: Union[str, datetime],
-              obs1: observatories.Observatory, obs2: observatories.Observatory, spec_range=const.spectral_range,
+              obs1: stations.Station, obs2: stations.Station,
               mask_frq=False, limit_frq=mask_frq_limit):
     """
     TODO -> corrupt data -> skip 
@@ -84,15 +84,15 @@ def calcPoint(year: int, month: int, day: int, time: Union[str, datetime],
     if (int(time_[3:5]) * 60. + int(time_[6:]))  % (const.LENGTH_FILES_MINUTES * 60) < 4 * blind_spot:
         date2 = date - timedelta(minutes=const.LENGTH_FILES_MINUTES)
         time2 = date2.strftime("%H:%M:%S")
-        dp11 = data.createFromTime(year, month, day, time2, obs1, spec_range)
-        dp12 = data.createFromTime(year, month, day, time_, obs1, spec_range)
-        dp21 = data.createFromTime(year, month, day, time2, obs2, spec_range)
-        dp22 = data.createFromTime(year, month, day, time_, obs2, spec_range)
+        dp11 = data.createFromTime(date2, station=obs1)
+        dp12 = data.createFromTime(date, station=obs1)
+        dp21 = data.createFromTime(date2, station=obs2)
+        dp22 = data.createFromTime(date, station=obs2)
         dp1 = dp11 + dp12               # TODO this breaks if file corrupted
         dp2 = dp21 + dp22
     else:
-        dp1 = data.createFromTime(year, month, day, time_, obs1, spec_range)
-        dp2 = data.createFromTime(year, month, day, time_, obs2, spec_range)
+        dp1 = data.createFromTime(date, station=obs1)
+        dp2 = data.createFromTime(date, station=obs2)
 
     if mask_frq:
         mask1 = maskBadFrequencies(dp1, limit=limit_frq)
@@ -196,7 +196,7 @@ def plotEverything(dp1, dp2, cor):
     plot_cor = ax2.plot(dataframe, color="red", linewidth=2,
                         label=f"Correlation: {cor.data_point_1.observatory.name} | {cor.data_point_2.observatory.name}")
     ax2.set_ylabel("Correlation")
-    ax2.set_ylim(-0.4,1)
+    ax2.set_ylim(-0.4, 1)
 
     ax3 = plt.twinx(ax)
     # ax3.spines["right"].set_position(("axes", 1.2))
@@ -328,21 +328,21 @@ def peaksInData(dp1, dp2, plot=False, peak_limit=2):
     return events_
 
 
-def filename(year, month):
-    return const.path_data + f"results/{year}/" + f"{year}_{str(month).zfill(2)}_unsearched_obs++"
+def filename(year, month, day):
+    return const.path_data + f"results/{year}/" + f"{year}_{str(month).zfill(2)}_{str(day).zfill(2)}_step1"
 
 
-def saveData(event_list: events.EventList, year, month):
+def saveData(event_list: events.EventList, year, month, day):
     """
     """
-    with open(filename(year, month), "wb") as file:
+    with open(filename(year, month, day), "wb") as file:
         pickle.dump(event_list, file)
 
 
-def loadData(year, month):
+def loadData(year, month, day):
     """
     """
-    with open(filename(year, month), "rb") as read_file:
+    with open(filename(year, month, day), "rb") as read_file:
         loaded_data = pickle.load(read_file)
 
     return loaded_data

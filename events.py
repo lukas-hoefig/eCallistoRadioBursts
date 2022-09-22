@@ -18,10 +18,12 @@ DATA_POINTS_PER_SECOND = const.DATA_POINTS_PER_SECOND
 BIN_FACTOR = const.BIN_FACTOR
 BURST_TYPE_UNKNOWN = "???"
 
+# TODO -> datetime, not str
+
 
 class Time(datetime):
     def __str__(self):
-        return "{}:{}:{}".format(str(self.hour).zfill(2), str(self.minute).zfill(2), str(self.second).zfill(2))
+        return f"{self.hour:02}:{self.minute:02}:{self.second:02}"
 
     def __repr__(self):
         return self.__str__()

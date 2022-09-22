@@ -6,7 +6,7 @@ import urllib
 
 import const
 import events
-import observatories
+import stations
 
 path_data = const.path_data
 reference_header_length = 12
@@ -92,7 +92,7 @@ def listMonstein(year: int, month: int, day: int):
                 _observatories = []
                 for i in _stations:
                     try:
-                        _observatories.append(observatories.observatory_dict[i])
+                        _observatories.append(observatories.observatory_dict[i])        # TODO
                     except KeyError:
                         pass
                 event = events.Event(_time_start, end_time=_time_end, stations=_observatories, burst_type=_type)
@@ -122,7 +122,7 @@ def listMonstein2orMore(year: int, month: int, day: int):
                 _observatories = []
                 for i in _stations:
                     try:
-                        _observatories.append(observatories.observatory_dict[i])
+                        _observatories.append(observatories.observatory_dict[i])        # TODO
                     except KeyError:
                         pass
                 if len(_observatories) < 2:

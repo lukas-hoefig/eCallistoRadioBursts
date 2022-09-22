@@ -9,7 +9,6 @@ from typing import List, Union
 
 import events
 import data
-import observatories
 import const
 
 CORRELATION_MIN = 0.8
