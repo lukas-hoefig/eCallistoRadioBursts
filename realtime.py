@@ -6,6 +6,7 @@ import os
 from typing import List
 
 import const
+import stations
 import download
 import data
 
@@ -28,9 +29,10 @@ def getFilesFromExtern():
 
 def pathData():
     today = datetime.datetime.today()
-    return const.path_data + f"{today.year}/{today.month}/{today.day}/"
+    return const.path_script + const.path_data + f"{today.year}/{today.month:02}/{today.day:02}/"
 
-def getDate(file:str):
+
+def getDate(file: str):
     reader = file.rsplit('/')[-1]
     reader = reader.rsplit('_')
 
@@ -43,21 +45,28 @@ def getDate(file:str):
 
     return datetime.datetime(year, month, day, hour, minute, second)
 
+
 def isNew(file: str):
     file_date = getDate(file)
     today = datetime.datetime.today()
-    difference = (file_date - today).total_seconds()
-
+    difference = (today - file_date).total_seconds()
     return difference < datetime.timedelta(minutes=50).total_seconds()
 
 
 def dropOld(obs: List[str]):
-    return [file for file in obs if isNew(file)]
+    return obs[-3:]
+    # return [file for file in obs if isNew(file)]
 
 
 def getFiles():
+    """
+    TODO switch dropold-only when a new file ?
+    """
+    focus_codes = [stations.getFocusCode(datetime.datetime.today(), station=obs) for obs in observatories]
     files_all = os.listdir(pathData())
-    files_stations = [[file for file in files_all if file.startswith(observatory)] for observatory in observatories]
+    files_stations = [[file for file in files_all
+                       if file.startswith(observatory) and file.endswith(focus_codes[i] + const.file_ending)]
+                      for i, observatory in enumerate(observatories)]
     files_filtered = [dropOld(files) for files in files_stations]
 
     newest = [getDate(i[-1]) for i in files_filtered]

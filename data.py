@@ -18,7 +18,7 @@ import events
 
 path_script = const.path_script
 path_data = const.path_data
-file_ending = ".fit.gz"
+file_ending = const.file_ending
 FREQ_MIN = 0
 FREQ_MAX = 1
 BIN_WIDTH_FREQUENCY = 2

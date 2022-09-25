@@ -8,6 +8,7 @@ import datetime
 path_script = os.getcwd().replace("\\", "/") + "/"
 path_data = "eCallistoData/"
 path_plots = "eCallistoPlots/"
+file_ending = ".fit.gz"
 e_callisto_url = 'http://soleil.i4ds.ch/solarradio/data/2002-20yy_Callisto/'
 DATA_POINTS_PER_SECOND = 4
 LENGTH_FILES_MINUTES = 15
