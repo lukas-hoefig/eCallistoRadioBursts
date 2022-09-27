@@ -346,3 +346,35 @@ def loadData(year, month, day):
         loaded_data = pickle.load(read_file)
 
     return loaded_data
+
+
+# filter variable fbad requencies
+
+from astropy.timeseries import LombScargle
+import download
+import numpy as np
+import data
+import matplotlib.pyplot as plt
+s="MONGOLIA-UB"
+
+download.downloadFullDay(2022,1,2,station=s)
+dp = data.createFromTime(2022,1,3,0,0,0, station=s)
+dp.plot()
+
+dp.createSummedCurve([45,200])
+plt.plot(dp.summedCurve)
+plt.show()
+
+avg_ = []
+for i in dp.spectrum_data.data:
+    avg_.append(np.std(i))
+avg_ = np.median(avg_)
+for i in dp.spectrum_data.data:
+    if np.std(i) > avg_* 10 :
+        avg = np.mean(i)
+        i[:] = avg
+
+dp.plot()
+dp.createSummedCurve([45,200])
+plt.plot(dp.summedCurve)
+plt.show()
