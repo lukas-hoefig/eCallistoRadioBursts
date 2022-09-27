@@ -6,7 +6,7 @@ import radiospectra.sources.callisto as cal
 import os
 import copy
 
-from typing import List, Union
+from typing import List, Union, Tuple
 
 import const
 import stations
@@ -102,7 +102,7 @@ def createLog(_date: datetime.datetime, _stations: List[str], _overwrite=True):
     datalog.close()
 
 
-def dataAvailable(*args) -> (bool, List[str]):
+def dataAvailable(*args) -> Tuple[bool, List[str]]:
     """
     don't call this
     call stationsAvailable() instead
@@ -138,7 +138,7 @@ def dataAvailable(*args) -> (bool, List[str]):
         return False, None
 
 
-def stationsAvailable(*args) -> (bool, List[str]):
+def stationsAvailable(*args) -> Tuple[bool, List[str]]:
     """
     checks whether data is available for a certain day in the local folder,
     and returns the observatory names for which data was downloaded
