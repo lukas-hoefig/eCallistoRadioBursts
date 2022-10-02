@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
 import copy
 from datetime import datetime, timedelta
 
@@ -17,8 +14,6 @@ LIMIT = 0.70
 DATA_POINTS_PER_SECOND = const.DATA_POINTS_PER_SECOND
 BIN_FACTOR = const.BIN_FACTOR
 BURST_TYPE_UNKNOWN = "???"
-
-# TODO -> datetime, not str
 
 
 class Time(datetime):
@@ -107,48 +102,41 @@ class EventList:
         if isinstance(other, Event):
             return self.__radd__(other)
 
-        temp = copy.deepcopy(self)
         for i in other.events:
-            if not i.inList(temp.events):
-                temp.events.append(i)
-            else:
-                if i.probability >= temp.events[i.inList(temp.events)[1]].probability:
-                    temp.events[i.inList(temp.events)[1]].probability = i.probability
-                    
-                    for j in i.stations:
-                        if j not in temp.events[i.inList(temp.events)[1]].stations and \
-                                    len(temp.events[i.inList(temp.events)[1]].stations) >= MAX_STATIONS:
-                            temp.events[i.inList(temp.events)[1]].stations.pop(0)
-                        temp.events[i.inList(temp.events)[1]].stations.append(j)
-                else:
-                    for j in i.stations:
-                        if j not in temp.events[i.inList(temp.events)[1]].stations and \
-                                    len(temp.events[i.inList(temp.events)[1]].stations) >= MAX_STATIONS:
-                            temp.events[i.inList(temp.events)[1]].stations.append(j)
-                temp.events[i.inList(temp.events)[1]].stations = list(set(temp.events[i.inList(temp.events)[1]].stations))
-        return temp
+            self.__radd__(i)
 
     def __radd__(self, other):
         temp = copy.deepcopy(self)
-        if not isinstance(other, Event):
-            raise TypeError
+        if other is None:
+            return self
 
-        if not other.inList(temp.events):
+        if not isinstance(other, Event):
+            print(type(other))
+            raise TypeError("Wrong Type, should be Event")
+
+        if not other.inList(temp):
             temp.events.append(other)
         else:
-            if other.probability >= temp.events[other.inList(temp.events)[1]].probability:
-                temp.events[other.inList(temp.events)[1]].probability = other.probability
-            
+            event_tmp = temp.events[other.inList(temp)[1]]
+            if other.probability >= event_tmp.probability:
+                event_tmp.probability = other.probability
                 for j in other.stations:
-                    if j not in temp.events[other.inList(temp.events)[1]].stations and \
-                                        len(temp.events[other.inList(temp.events)[1]].stations) >= MAX_STATIONS:
-                        temp.events[other.inList(temp.events)[1]].stations.pop(0)
-                    temp.events[other.inList(temp.events)[1]].stations.append(j)
+                    if len(event_tmp.stations) < MAX_STATIONS:
+                        event_tmp.stations.append(j)
+                    elif j in event_tmp.stations and len(event_tmp.stations) >= MAX_STATIONS:
+                        pass
+                    elif j not in event_tmp.stations and len(event_tmp.stations) >= MAX_STATIONS:
+                        for stat in enumerate(event_tmp.stations):
+                            if not other.stations.count(stat[1]):
+                                event_tmp.stations.pop(stat[0])
+                                event_tmp.stations.append(j)
             else:
                 for j in other.stations:
-                    if j not in temp.events[other.inList(temp.events)[1]].stations and \
-                                len(temp.events[other.inList(temp.events)[1]].stations) >= MAX_STATIONS:
-                        temp.events[other.inList(temp.events)[1]].stations.append(j)
+                    if len(event_tmp.stations) < MAX_STATIONS:
+                        event_tmp.stations.append(j)
+                    else:
+                        pass
+
         return temp
 
     def __sub__(self, other):

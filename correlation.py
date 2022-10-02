@@ -5,7 +5,6 @@ import copy
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
-from typing import List, Union
 
 import events
 import data
@@ -19,6 +18,7 @@ LENGTH_TYPE_III_AVG = 120    # TODO definition type II / III -> const | * 4 for 
 TYPE_III = "III"
 TYPE_II = " II"
 TYPE_IV = " IV"
+TYPE_UNKNOWN = "???"
 BURST_TYPE_UNKNOWN = events.BURST_TYPE_UNKNOWN
 default_time_window = 4
 default_flatten_window = 2000
@@ -27,25 +27,28 @@ default_r_window = 180
 
 class Correlation:
     def __init__(self, data_point_1: data.DataPoint, data_point_2: data.DataPoint, day: int,
-                 _no_background=False, _bin_freq=False, _bin_time=False, _flatten=False,
-                 _bin_time_width=default_time_window,
-                 _flatten_window=default_flatten_window,
-                 _r_window=default_r_window,
+                 no_background=False, bin_freq=False, bin_time=False, flatten=False,
+                 bin_time_width=default_time_window,
+                 flatten_window=default_flatten_window,
+                 r_window=default_r_window,
                  method_bin_t='median',
                  method_bin_f='median'):
 
         self.data_point_1 = copy.deepcopy(data_point_1)
         self.data_point_2 = copy.deepcopy(data_point_2)
 
+        self.data_per_second_1 = None       # TODO -> datapoint
+        self.data_per_second_2 = None       # TODO -> datapoint
+
         self.day = day
 
-        self.no_background = _no_background
-        self.bin_frequency = _bin_freq
-        self.bin_time = _bin_time
-        self.flatten = _flatten
-        self.flatten_window = _flatten_window
-        self.bin_time_width = _bin_time_width
-        self.r_window = _r_window
+        self.no_background = no_background
+        self.bin_frequency = bin_freq
+        self.bin_time = bin_time
+        self.flatten = flatten
+        self.flatten_window = flatten_window
+        self.bin_time_width = bin_time_width
+        self.r_window = r_window
         self.method_bin_f = method_bin_f
         self.method_bin_t = method_bin_t
 
@@ -61,47 +64,58 @@ class Correlation:
         self.setupFreqRange()
         self.modulateData()
         self.setupSummedCurves()
-        self.setupTimeAxis()
         self.correlateCurves()
+        self.calculateTimeAxis()
 
     def correlateCurves(self):
-        if self.time_start_delta > 0:
-            curve1 = self.data_point_1.summedCurve[:-self.time_start_delta]
-            curve2 = self.data_point_2.summedCurve[self.time_start_delta:]
-            self.time_axis = self.time_axis[:-self.time_start_delta]
+        delta_t_start = (self.data_point_1.spectrum_data.start - self.data_point_2.spectrum_data.start).total_seconds()
+        delta_t_end = (self.data_point_1.spectrum_data.end - self.data_point_2.spectrum_data.end).total_seconds()
 
-        elif self.time_start_delta < 0:
-            curve1 = self.data_point_1.summedCurve[-self.time_start_delta:]
-            curve2 = self.data_point_2.summedCurve[:self.time_start_delta]
-            self.time_axis = self.time_axis[-self.time_start_delta:]
+        curve1 = self.data_point_1.summedCurve
+        curve2 = self.data_point_2.summedCurve
 
+        self.data_per_second_1 = self.data_point_1.number_values /\
+            (self.data_point_1.spectrum_data.end - self.data_point_1.spectrum_data.start)\
+            .total_seconds()
+        self.data_per_second_2 = self.data_point_2.number_values / \
+            (self.data_point_2.spectrum_data.end - self.data_point_2.spectrum_data.start)\
+            .total_seconds()
+
+        if self.data_point_1.spectrum_data.start < self.data_point_2.spectrum_data.start:
+            curve1 = curve1[int(self.data_per_second_1 * abs(delta_t_start)):]
         else:
-            curve1 = self.data_point_1.summedCurve
-            curve2 = self.data_point_2.summedCurve
+            curve2 = curve2[int(self.data_per_second_2 * abs(delta_t_start)):]
 
-        if len(curve1) > len(curve2):
-            self.time_axis = self.time_axis[:-abs(len(curve1) - len(curve2))]
-            curve1 = curve1[:-abs(len(curve1) - len(curve2))]
-        elif len(curve2) > len(curve1):
-            curve2 = curve2[:-abs(len(curve2) - len(curve1))]
+        if self.data_point_1.spectrum_data.end > self.data_point_2.spectrum_data.end:
+            curve1 = curve1[:-int(self.data_per_second_1 * abs(delta_t_end))]
+        else:
+            curve2 = curve2[:-int(self.data_per_second_2 * abs(delta_t_end))]
 
-        self.data_curve = pd.Series(curve1).rolling(self.r_window).corr(pd.Series(curve2))
-        self.data_curve.replace([np.inf, -np.inf], np.nan).tolist()
+        if self.data_per_second_1 < self.data_per_second_2:
+            curve1 = np.array([curve1[int(i / (self.data_per_second_2 / self.data_per_second_1))] for i in
+                               range(int(self.data_per_second_2 / self.data_per_second_1 * len(curve1)))])
+        if self.data_per_second_1 > self.data_per_second_2:
+            curve2 = np.array([curve2[int(i / (self.data_per_second_1 / self.data_per_second_2))] for i in
+                               range(int(self.data_per_second_1 / self.data_per_second_2 * len(curve2)))])
 
-    def calculatePeaks(self, _limit=CORRELATION_MIN):
+        self.data_curve = pd.Series(curve1).rolling(self.r_window).corr(pd.Series(curve2))\
+                            .replace([np.inf, -np.inf], np.nan).tolist()
+
+    def calculatePeaks(self, limit=CORRELATION_MIN):
         within_burst = False
         peaks = []
         if self.data_point_1.observatory == self.data_point_2.observatory:
             return
         for point in range(len(self.data_curve)):
-            if self.data_curve[point] > _limit and not within_burst:
+            if self.data_curve[point] > limit and not within_burst:
                 time_start = datetime.fromtimestamp(point / self.data_per_second + self.time_start)
-                burst = events.Event(time_start, probability=self.data_curve[point], stations=[self.data_point_1.observatory, self.data_point_2.observatory])
+                burst = events.Event(time_start, probability=self.data_curve[point],
+                                     stations=[self.data_point_1.observatory, self.data_point_2.observatory])
                 if burst.time_start.day == self.day:
                     peaks.append(burst)
                     within_burst = True
 
-            if self.data_curve[point] > _limit and within_burst and self.data_curve[point] > peaks[-1].probability:
+            if self.data_curve[point] > limit and within_burst and self.data_curve[point] > peaks[-1].probability:
                 peaks[-1].probability = self.data_curve[point]
             if within_burst and self.data_curve[point] < CORRELATION_PEAK_END:
                 time_end = datetime.fromtimestamp(point / self.data_per_second + self.time_start)
@@ -127,19 +141,20 @@ class Correlation:
             self.peaks = events.EventList(peaks)
 
     def fileName(self):
-        return "{}_{}_{}_{}_{}_{}{}{}{}{}.png"\
-            .format(self.data_point_1.year, self.data_point_1.month, self.data_point_1.day,
-                    self.data_point_1.observatory, self.data_point_2.observatory, self.r_window,
-                    ["", "_nobg"][self.no_background], ["", "_binfreq"][self.bin_frequency],
-                    ["", "_bintime_{}".format(self.bin_time_width)][self.bin_time],
-                    ["", "_flatten_{}".format(self.flatten_window)][self.flatten])
+        # TODO time of day ??
+        background = ['', '_nobg'][self.no_background]
+        bin_frq = ['', '_binfreq'][self.bin_frequency]
+        bin_time = ['', '_bintime_{}'.format(self.bin_time_width)][self.bin_time]
+        flatten = ['', '_flatten_{}'.format(self.flatten_window)][self.flatten]
+        return f"{self.data_point_1.year}_{self.data_point_1.month}_{self.data_point_1.day}_" \
+               f"{self.data_point_1.observatory}_{self.data_point_2.observatory}_" \
+               f"{self.r_window}{background}{bin_frq}{bin_time}{flatten}.png"
 
     def printResult(self):
         if not self.peaks:
             print("No bursts detected")
             return
-        print("Burst(s) detected at: {} & {}".format(self.data_point_1.observatory.name,
-                                                     self.data_point_2.observatory.name))
+        print(f"Burst(s) detected at: {self.data_point_1.observatory.name} & {self.data_point_2.observatory.name}")
         for i in self.peaks:
             print(i)
 
@@ -148,10 +163,10 @@ class Correlation:
         :return: [not found, false found]
         """
         peaks = copy.copy(self.peaks)
-        events = copy.copy(test.events)
+        events_ = copy.copy(test.events)
         for event in test.events:
             if event.inList(self.peaks.events):
-                events.remove(event)
+                events_.remove(event)
         for peak in self.peaks:
             if peak.inList(test.events):
                 peaks -= peak
@@ -162,12 +177,12 @@ class Correlation:
                 print(p.time, "c: ", p.probability)
         else:
             print("No false peaks found")
-        if events:
-            print("Events not found ({}/{}): \n".format(len(events), len(test.events)), events)
+        if events_:
+            print("Events not found ({}/{}): \n".format(len(events_), len(test.events)), events_)
         else:
             print("All events found ({})".format(len(test.events)))
         # -> return number_found, number_to_find,
-        return [events, peaks]
+        return [events_, peaks]
 
     def setupFreqRange(self):
         frequency_low = max(self.data_point_1.spectrum_data.freq_axis[-1],
@@ -176,16 +191,15 @@ class Correlation:
                              self.data_point_2.spectrum_data.freq_axis[0])
         self.frequency_range = [frequency_low, frequency_high]
 
-    def setupTimeAxis(self):
-        self.time_axis = copy.copy(self.data_point_1.spectrum_data.time_axis)
+    def calculateTimeAxis(self):
+        data_per_second = max(self.data_per_second_1, self.data_per_second_2)
         time_start_1 = self.data_point_1.spectrum_data.start.timestamp()
         time_start_2 = self.data_point_2.spectrum_data.start.timestamp()
-
         if time_start_2 > time_start_1:
             self.time_start = time_start_2
         else:
             self.time_start = time_start_1
-        self.time_start_delta = int((time_start_1 - time_start_2) * self.data_per_second)
+        self.time_axis = [i / data_per_second for i in range(len(self.data_curve))]
 
     def setupSummedCurves(self):
         setupSummedCurve(self.data_point_1, self.frequency_range, self.flatten, self.flatten_window)
@@ -193,7 +207,7 @@ class Correlation:
 
     def plotCurve(self, ax, peaks=None, label=None, color=None):
         return data.plotCurve(self.time_axis, self.data_curve, self.time_start, self.bin_time, self.bin_time_width,
-                       ax, peaks=peaks, new_ax=False, label=label, color=color)
+                              ax, peaks=peaks, new_ax=False, label=label, color=color)
 
     def modulateData(self):
         if self.bin_time:

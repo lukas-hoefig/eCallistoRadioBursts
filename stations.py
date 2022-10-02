@@ -1,11 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from typing import List, Union
+"""
+Paths, names, constants needed in several scripts
+
+:authors: 	Lukas Höfig
+:contact: 	lukas.hoefig@edu.uni-graz.at
+:date:       27.09.2022
+"""
+
+
+from typing import List
 from astropy.io import fits
 import urllib
 from bs4 import BeautifulSoup
-import datetime
 import os
 
 import const
@@ -17,16 +25,14 @@ e_callisto_url = const.e_callisto_url
 station_dict = {}
 station_list = []
 
-# TODO -> dict thingy into something useful
-# todo getter focus code ? because not always available?
+# TODO -> keep dict?
 
 
 class Station:
     """
-    TODO initializer without lon lat spectral range focus code - just name
     """
 
-    def __init__(self, name: str, focus_code: str, longitude: float, latitude: float, spectral_range: List):
+    def __init__(self, name: str, focus_code=None, longitude=None, latitude=None, spectral_range=None):
         """
         :param name: ID of the Observatory
         :param spectral_range: dict{"ID", [spectral, range]}
@@ -36,8 +42,12 @@ class Station:
         self.longitude = longitude
         self.latitude = latitude
         self.spectral_range = spectral_range
-        station_list.append(self.name + self.focus_code)
-        station_dict[self.name + self.focus_code] = self
+        if focus_code is not None:
+            name = self.name + self.focus_code
+        else:
+            name = self.name
+        station_list.append(name)
+        station_dict[name] = self
 
     def __str__(self):
         return self.name
@@ -78,20 +88,12 @@ def getFocusCode(*date, station: str):
     """
     gets the first valid focus code for the frq band [<50,<500] or None
     """
-    if isinstance(date[0], datetime.datetime):
-        date = date[0]
-    elif len(date) > 2:
-        for i in date:
-            if not isinstance(i, int):
-                raise ValueError("Arguments should be datetime or Integer")
-        date = datetime.datetime(year=date[0], month=date[1], day=date[2])
-    else:
-        raise ValueError("Arguments should be datetime or multiple Integer as year, month, day")
+    date_ = const.getDateFromArgs(*date)
 
-    files = os.listdir(const.pathDataDay(date))
+    files = os.listdir(const.pathDataDay(date_))
     files_station = [i for i in files if i.startswith(station)]
     for i in files_station:
-        file = fits.open(const.pathDataDay(date) + i)
+        file = fits.open(const.pathDataDay(date_) + i)
         frq_axis = file[1].data['frequency'].flatten()
         frq = sorted([frq_axis[0], frq_axis[-1]])
         if frq[0] < frq_limit_low and frq[1] < frq_limit_high:
@@ -120,8 +122,10 @@ def listFD(url: str, station: List[str]):
             if node.get('href').startswith(station[0]) and node.get('href').endswith(station[1] + '.fit.gz')]
 
 
-def getStations(date: datetime):
-    date_str = "{:%Y/%m/%d}".format(date)
+def getStations(*date):
+    date_ = const.getDateFromArgs(*date)
+
+    date_str = "{:%Y/%m/%d}".format(date_)
     files = listFilesDay(e_callisto_url + date_str)
     stations = []
     stations_return = []

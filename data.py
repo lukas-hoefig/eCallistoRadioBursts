@@ -71,6 +71,10 @@ class DataPoint:
         """
         temp1 = copy.copy(self)
         temp2 = copy.copy(other)
+        if temp1.spectrum_data is None:
+            return temp2
+        if temp2.spectrum_data is None:
+            return temp1
         temp1.spectrum_data = CallistoSpectrogram.join_many([temp1.spectrum_data, temp2.spectrum_data], maxgap=None)
         temp1.number_values = len(temp1.spectrum_data.time_axis)
         if temp1.binned_freq != temp2.binned_freq:
@@ -226,10 +230,13 @@ class DataPoint:
         """
         self.spectrum_data.peek()
 
-    def createSummedCurve(self, frequency_range: List):
+    def createSummedCurve(self, frequency_range=None):
         """
         creates summed up curve
         """
+        if frequency_range is None:
+            frequency_range = [self.spectrum_data.freq_axis[-1], self.spectrum_data.freq_axis[0]]
+
         freq_high = (np.where(self.spectrum_data.freq_axis == max(
             self.spectrum_data.freq_axis[self.spectrum_data.freq_axis <= frequency_range[1]])))[0][0]
         freq_low = (np.where(self.spectrum_data.freq_axis == min(
@@ -256,15 +263,15 @@ class DataPoint:
         self.flattened = True
 
     def plotSummedCurve(self, ax, peaks=None, label=None, color=None):
-        return plotCurve(self.spectrum_data.time_axis, self.summedCurve, self.spectrum_data.start.timestamp(),
+        plotCurve(self.spectrum_data.time_axis, self.summedCurve, self.spectrum_data.start.timestamp(),
                   self.binned_time, self.binned_time_width, ax, peaks=peaks, new_ax=True, label=label, color=color)
 
     def fileName(self):
-        return "{}_{}_{}_{}{}{}{}{}.png"\
-            .format(self.year, self.month, self.day, self.observatory,
-                    ["", "_nobg"][self.background_subtracted], ["", "_binfreq"][self.binned_freq],
-                    ["", "_bintime_{}".format(self.binned_time_width)][self.binned_time],
-                    ["", "_flatten_{}".format(self.flattened_window)][self.flattened])
+        return f"{self.year}_{self.month:02}_{self.day:02}_{self.observatory}" \
+               f"{['', '_nobg'][self.background_subtracted]}" \
+               f"{['', '_binfreq'][self.binned_freq]}" \
+               f"{['', '_bintime_{}'.format(self.binned_time_width)][self.binned_time]}" \
+               f"{['', '_flatten_{}'.format(self.flattened_window)][self.flattened]}.png"
 
     def dateTime(self):
         return datetime(year=self.year, month=self.month, day=self.day,
@@ -279,24 +286,16 @@ def createDayList(*date, station: Union[stations.Station, str]) -> List[DataPoin
     :param station:
     :return: List[DataPoints]
     """
-    if isinstance(date[0], datetime):
-        date = date[0]
-    elif len(date) > 2:
-        for i in date:
-            if not isinstance(i, int):
-                raise ValueError("Arguments should be datetime or Integer")
-        date = datetime(year=date[0], month=date[1], day=date[2])
-    else:
-        raise ValueError("Arguments should be datetime or multiple Integer as year, month, day")
+    date_ = const.getDateFromArgs(*date)
 
     if isinstance(station, str):
-        focus_code = stations.getFocusCode(date, station=station)
+        focus_code = stations.getFocusCode(date_, station=station)
         station_name = station
     else:
         focus_code = station.focus_code
         station_name = station.name
 
-    path = const.pathDataDay(date)
+    path = const.pathDataDay(date_)
     files_day = sorted(os.listdir(path))
     files_observatory = []
     data_day = []
@@ -325,49 +324,42 @@ def createDay(*date, station: Union[stations.Station, str]) -> DataPoint:
     return sum(createDayList(*date, station=station))
 
 
-def createFromTime(*time, station: Union[stations.Station, str]) -> DataPoint:
-    if isinstance(time[0], datetime):
-        time = time[0]
-    elif len(time) > 2:
-        time_values = [0 for i in range(6)]
-        for i, j in enumerate(time):
-            if isinstance(j, int):
-                time_values[i] = j
-            elif isinstance(j, str):
-                time_values[i] = int(j)
-            else:
-                raise ValueError("Arguments should be datetime or Integer")
-        time = datetime(year=time_values[0], month=time_values[1], day=time_values[2],
-                        hour=time_values[3], minute=time_values[4], second=time_values[5])
-    else:
-        raise ValueError("Arguments should be datetime or multiple Integer as year, month, day")
+def createFromTime(*date, station: Union[stations.Station, str], extent=True) -> DataPoint:
+    date_ = const.getDateFromArgs(*date)
 
     if isinstance(station, str):
-        spectral_id = stations.getFocusCode(time, station=station)
+        spectral_id = stations.getFocusCode(date_, station=station)
         station_name = station
     else:
         spectral_id = station.focus_code
         station_name = station.name
 
-    path = const.pathDataDay(time)
+    path = const.pathDataDay(date_)
     files = sorted(os.listdir(path))
-    time_target = time.hour * 3600 + time.minute * 60 + time.second
-
+    time_target = date_.hour * 3600 + date_.minute * 60 + date_.second
     files_filtered = []
     for file in files:
         if file.startswith(station_name) and file.endswith(spectral_id + file_ending):
             files_filtered.append(file)
-
-    file_ = files_filtered[0]
-    for file in files_filtered:
+    for i, file in enumerate(files_filtered):
         time_read = file.rsplit('_')[2]
-        time_file = int(time_read[:2])*3600 + int(time_read[2:4])*60 + int(time_read[4:])
+        hour = int(time_read[:2])
+        minute = int(time_read[2:4])
+        second = int(time_read[4:])
+        time_file = hour * 3600 + minute * 60 + second
         time_diff = time_target - time_file
-        if time_diff < 0:
-            break
-        file_ = file
 
-    return DataPoint(file_)
+        if time_diff < 15 * 60:
+            dp0 = DataPoint(file)
+            dp = dp0
+            if extent and i and ((date_.minute * 60 + date_.second) - (minute * 60 + second) < (5 * 60)):
+                dp_ahead = DataPoint(files_filtered[i - 1])
+                dp = dp_ahead + dp0
+            if extent and i + 1 < len(files_filtered) and (((date_.minute * 60 + date_.second) - (minute * 60 + second)) > (10 * 60)):
+                dp_after = DataPoint(files_filtered[i + 1])
+                dp = dp0 + dp_after
+            return dp
+    raise FileNotFoundError("No file for the specified time and station found.")
 
 
 def createFromEvent(event: events.Event, station=None):
@@ -376,9 +368,6 @@ def createFromEvent(event: events.Event, station=None):
     """
     time_start = event.time_start
     time_end = event.time_end
-    year = event.time_start.year
-    month = event.time_start.month
-    day = event.time_start.day
     if station and station in event.stations:
         obs = station
     elif station and not event.stations:
@@ -386,19 +375,21 @@ def createFromEvent(event: events.Event, station=None):
     else:
         obs = event.stations[0]
 
-    dp = createFromTime(year, month, day, str(time_start), station=obs)  # TODO this crashes -> whole thing as datetime, Events->datetime
+    dp = createFromTime(time_start, station=obs)  # TODO this crashes -> whole thing as datetime, Events->datetime
     i = 1
     while dp.spectrum_data.end < time_end:
         new_time = time_start + timedelta(minutes=const.LENGTH_FILES_MINUTES * i)
-        dp += createFromTime(new_time.year, new_time.month, new_time.day, str(events.time(new_time)), obs, const.spectral_range)
+        dp += createFromTime(new_time, station=obs)
         i += 1
     
     if (event.time_start - event.time_end).total_seconds() < 20:
         delta = 10
     else:
         delta = 0
-    del_start = int((event.time_start - dp.spectrum_data.start - timedelta(seconds=delta)).total_seconds()*const.DATA_POINTS_PER_SECOND)
-    del_end = int((event.time_end - dp.spectrum_data.start + timedelta(seconds=delta)).total_seconds()*const.DATA_POINTS_PER_SECOND)
+    del_start = int((event.time_start - dp.spectrum_data.start - timedelta(seconds=delta)).total_seconds()
+                    * const.DATA_POINTS_PER_SECOND)
+    del_end = int((event.time_end - dp.spectrum_data.start + timedelta(seconds=delta)).total_seconds()
+                  * const.DATA_POINTS_PER_SECOND)
     if del_start < 0:
         del_start = 0
     dp.spectrum_data.data = dp.spectrum_data.data[:, del_start:del_end]
@@ -434,26 +425,17 @@ def listDataPointDay(*date, station: stations.Station):
 
     """
 
-    if isinstance(date[0], datetime):
-        date = date[0]
-    elif len(date) > 2:
-        for i in date:
-            if not isinstance(i, int):
-                raise ValueError("Arguments should be datetime or Integer")
-        date = datetime(year=date[0], month=date[1], day=date[2])
-    else:
-        raise ValueError("Arguments should be datetime or multiple Integer as year, month, day")
+    date_ = const.getDateFromArgs(*date)
+    date_ = datetime(year=date_.year, month=date_.month, day=date_.day, hour=int(station.obsTime()))
+    date_ahead = date_ - timedelta(days=1)
+    date_behind = date_ + timedelta(days=1)
+    midnight = date_ + timedelta(hours=12)
 
-    date = datetime(year=date.year, month=date.month, day=date.day, hour=int(station.obsTime()))
-    date_ahead = date - timedelta(days=1)
-    date_behind = date + timedelta(days=1)
-    midnight = date + timedelta(hours=12)
-
-    download.downloadFullDay(date, station=station)
+    download.downloadFullDay(date_, station=station)
     download.downloadFullDay(date_ahead, station=station)
     download.downloadFullDay(date_behind, station=station)
 
-    day_list = createDayList(date, station=station)
+    day_list = createDayList(date_, station=station)
     date_ahead_list = createDayList(date_ahead, station=station)
     date_behind_list = createDayList(date_behind, station=station)
 

@@ -9,7 +9,6 @@ import numpy as np
 import pandas as pd
 import copy
 import pickle
-from typing import Union
 
 import const
 import data
@@ -22,34 +21,42 @@ plot_size_y = 12
 mask_frq_limit = 1.5
 
 # TODO make plot() its own function - code duplication
-# TODO correlation always from -.4 to 1 !!!!!
 
 
-def maskBadFrequencies(dp1, limit=mask_frq_limit):
-    dpt = copy.deepcopy(dp1)
+def maskBadFrequencies(datapoint: data.DataPoint, limit=mask_frq_limit):
+    dpt = copy.deepcopy(datapoint)
     dpt.subtract_background()
+
     data_ = dpt.spectrum_data.data
+    if isinstance(data_, np.ma.masked_array):
+        data_ = data_.data
 
     summed = np.array([np.nansum(data_[f]) for f in range(len(data_))])
     summed_lim = limit * np.nanstd(summed)
     summed_mean = np.nanmean(summed)
-    mask = [abs(i - summed_mean) > summed_lim for i in summed]
+
+    mean_ = []
+    for i in data_:
+        mean_.append(np.nanstd(i))
+    mean = np.nanmedian(mean_)
+
+    mask = np.array([(abs(j - summed_mean) > summed_lim) or (mean_[i] > mean * 10) for i, j in enumerate(summed)])
     return mask
 
 
-def maskBadFrequenciesPlot(dp1, limit=mask_frq_limit):
-    data_ = dp1.spectrum_data.data
-    frq = dp1.spectrum_data.freq_axis
+def maskBadFrequenciesPlot(datapoint: data.DataPoint, limit=mask_frq_limit):
+    data_ = datapoint.spectrum_data.data
+    frq = datapoint.spectrum_data.freq_axis
     summed = np.array([np.nansum(f) for f in data_])
     summed_max = np.nanmax(summed)
     summed_min = np.nanmin(summed)
 
-    mask = maskBadFrequencies(dp1, limit=limit)
+    mask = maskBadFrequencies(datapoint, limit=limit)
     summed_masked = copy.copy(summed)
     summed_masked[mask] = np.nanmean(summed)
 
     fig, ax = plt.subplots(figsize=(plot_size_x, plot_size_y))
-    plt.imshow(dp1.spectrum_data.data, extent=[summed_min, summed_max, frq[0], frq[-1]],
+    plt.imshow(datapoint.spectrum_data.data, extent=[summed_min, summed_max, frq[0], frq[-1]],
                aspect='auto', origin='lower')
     ax.set_ylim(frq[0], frq[-1])
     ax.set_xlim([np.nanmin(summed), np.nanmax(summed)])
@@ -66,33 +73,38 @@ def maskBadFrequenciesPlot(dp1, limit=mask_frq_limit):
     return mask
 
 
-def calcPoint(year: int, month: int, day: int, time: Union[str, datetime],
-              obs1: stations.Station, obs2: stations.Station,
-              mask_frq=False, limit_frq=mask_frq_limit):
+def calcPoint(*date,  obs1: stations.Station, obs2: stations.Station, dp1=None, dp2=None,
+              mask_frq=False, limit_frq=mask_frq_limit, extent=True, limit=correlation.CORRELATION_MIN,
+              flatten=None, bin_time=None, bin_freq=None, no_bg=None, r_window=None,
+              flatten_window=None, bin_time_width=None, method_bin_t=None, method_bin_f=None):
     """
     TODO -> corrupt data -> skip 
     """
-    if isinstance(time, datetime):
-        time_ = time.strftime("%H:%M:%S")
-        date = time
-    else:
-        time_ = time
-        date = datetime(year, month, day, int(time_[:2]), int(time_[3:5]), int(time_[6:]))
+    if flatten is None:
+        flatten = True
+    if flatten_window is None:
+        flatten_window = correlation.default_flatten_window
+    if bin_time is None:
+        bin_time = True
+    if bin_freq is None:
+        bin_freq = False
+    if no_bg is None:
+        no_bg = True
+    if r_window is None:
+        r_window = int(correlation.default_r_window/correlation.default_time_window)
+    if bin_time_width is None:
+        bin_time_width = correlation.default_time_window
+    if method_bin_t is None:
+        method_bin_t = 'median'
+    if method_bin_f is None:
+        method_bin_f = 'median'
 
-    # TODO function this -> createfromEvent -> cut front and back to 15min with peak in middle
-    blind_spot = (correlation.default_r_window / correlation.default_time_window) * 2
-    if (int(time_[3:5]) * 60. + int(time_[6:]))  % (const.LENGTH_FILES_MINUTES * 60) < 4 * blind_spot:
-        date2 = date - timedelta(minutes=const.LENGTH_FILES_MINUTES)
-        time2 = date2.strftime("%H:%M:%S")
-        dp11 = data.createFromTime(date2, station=obs1)
-        dp12 = data.createFromTime(date, station=obs1)
-        dp21 = data.createFromTime(date2, station=obs2)
-        dp22 = data.createFromTime(date, station=obs2)
-        dp1 = dp11 + dp12               # TODO this breaks if file corrupted
-        dp2 = dp21 + dp22
+    if dp1 is None and dp2 is None:
+        date_ = const.getDateFromArgs(*date)
+        dp1 = data.createFromTime(date_, station=obs1, extent=extent)
+        dp2 = data.createFromTime(date_, station=obs2, extent=extent)
     else:
-        dp1 = data.createFromTime(date, station=obs1)
-        dp2 = data.createFromTime(date, station=obs2)
+        date_ = dp1.spectrum_data.start
 
     if mask_frq:
         mask1 = maskBadFrequencies(dp1, limit=limit_frq)
@@ -102,40 +114,40 @@ def calcPoint(year: int, month: int, day: int, time: Union[str, datetime],
         dp2.spectrum_data.data[mask2, :] = np.nanmean(dp2.spectrum_data.data)
     else:
         pass
+
     dp1_cor = copy.deepcopy(dp1)
     dp2_cor = copy.deepcopy(dp2)
-    # TODO parameter all corr variables
-    cor = correlation.Correlation(dp1_cor, dp2_cor, day=day,
-                                  _flatten=True, _bin_time=True, _bin_freq=False, _no_background=True,
-                                  _r_window=int(correlation.default_r_window/correlation.default_time_window),
-                                  _flatten_window=correlation.default_flatten_window,
-                                  _bin_time_width=correlation.default_time_window)
-    cor.calculatePeaks()
+
+    cor = correlation.Correlation(dp1_cor, dp2_cor, day=date_.day,
+                                  flatten=flatten, bin_time=bin_time, bin_freq=bin_freq, no_background=no_bg,
+                                  r_window=r_window, flatten_window=flatten_window, bin_time_width=bin_time_width,
+                                  method_bin_t=method_bin_t, method_bin_f=method_bin_f)
+    cor.calculatePeaks(limit=limit)
     print(cor.fileName())
     print(cor.peaks)
 
-    dp1.createSummedCurve([dp1.spectrum_data.freq_axis[-1], dp1.spectrum_data.freq_axis[-1]])
-    dp2.createSummedCurve([dp2.spectrum_data.freq_axis[-1], dp2.spectrum_data.freq_axis[-1]])
+    dp1.createSummedCurve()
+    dp2.createSummedCurve()
     dp1.flattenSummedCurve(rolling_window=correlation.default_flatten_window)
     dp2.flattenSummedCurve(rolling_window=correlation.default_flatten_window)
     return dp1, dp2, cor
 
 
-def plotDatapoint(dp1):
-    t = np.arange(dp1.spectrum_data.start.strftime("%Y-%m-%dT%H:%M:%S.%z"),
-                  dp1.spectrum_data.end.strftime("%Y-%m-%dT%H:%M:%S.%z"), dtype='datetime64[s]').astype(datetime)
+def plotDatapoint(datapoint: data.DataPoint):
+    t = np.arange(datapoint.spectrum_data.start.strftime("%Y-%m-%dT%H:%M:%S.%z"),
+                  datapoint.spectrum_data.end.strftime("%Y-%m-%dT%H:%M:%S.%z"), dtype='datetime64[s]').astype(datetime)
     mt = mdates.date2num((t[0], t[-1]))
 
     fig, ax = plt.subplots(figsize=(plot_size_x, plot_size_y))
-    fig.suptitle(f"{dp1.day}.{dp1.month}.{dp1.year} Radio Flux Data {dp1.observatory.name}")
+    fig.suptitle(f"{datapoint.day}.{datapoint.month}.{datapoint.year} Radio Flux Data {datapoint.observatory.name}")
     ax.set_xlabel("Time")
     ax.set_ylabel("Frequency [MHz]")
-    plt.imshow(dp1.spectrum_data.data, extent=[mt[0], mt[1], 0, int(900 / plot_size_x * plot_size_y)],
+    plt.imshow(datapoint.spectrum_data.data, extent=[mt[0], mt[1], 0, int(900 / plot_size_x * plot_size_y)],
                aspect='auto', origin='lower')
     cbar = plt.colorbar(location='right', anchor=(.15, 0.0))
     cbar.set_label("Intensity")
     ax.set_yticks([int(900 / plot_size_x * plot_size_y / 9) * i for i in range(0, 10)],
-                  np.around(dp1.spectrum_data.freq_axis[::int(len(dp1.spectrum_data.freq_axis) / 9)], 1))
+                  np.around(datapoint.spectrum_data.freq_axis[::int(len(datapoint.spectrum_data.freq_axis) / 9)], 1))
     ax.xaxis.set_major_locator(mdates.MinuteLocator(interval=1))
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
     plt.xticks(rotation=45)
@@ -144,7 +156,7 @@ def plotDatapoint(dp1):
     plt.show()
 
 
-def plotEverything(dp1, dp2, cor):
+def plotEverything(dp1: data.DataPoint, dp2: data.DataPoint, cor: correlation.Correlation):
     if cor.day == dp1.day:
         year = dp1.year
         month = dp1.month
@@ -246,7 +258,7 @@ def plotEverything(dp1, dp2, cor):
     plt.show()
 
 
-def peaksInData(dp1, dp2, plot=False, peak_limit=2):
+def peaksInData(dp1: data.DataPoint, dp2: data.DataPoint, plot=False, peak_limit=2):
     """
 
     """
@@ -328,53 +340,25 @@ def peaksInData(dp1, dp2, plot=False, peak_limit=2):
     return events_
 
 
-def filename(year, month, day):
-    return const.path_data + f"results/{year}/" + f"{year}_{str(month).zfill(2)}_{str(day).zfill(2)}_step1"
+def filename(*date, step: int):
+    date_ = const.getDateFromArgs(*date)
+    return const.path_data + f"results/{date_.year}/{date_.month:02}/" + \
+                             f"{date_.year}_{date_.month:02}_{date_.day:02}_step{step}"
 
 
-def saveData(event_list: events.EventList, year, month, day):
+def saveData(*date, step: int, event_list: events.EventList):
     """
     """
-    with open(filename(year, month, day), "wb") as file:
+    date_ = const.getDateFromArgs(*date)
+    with open(filename(date_, step=step), "wb") as file:
         pickle.dump(event_list, file)
 
 
-def loadData(year, month, day):
+def loadData(*date, step: int):
     """
     """
-    with open(filename(year, month, day), "rb") as read_file:
+    date_ = const.getDateFromArgs(*date)
+    with open(filename(date_, step=step), "rb") as read_file:
         loaded_data = pickle.load(read_file)
 
     return loaded_data
-
-
-# filter variable fbad requencies
-
-from astropy.timeseries import LombScargle
-import download
-import numpy as np
-import data
-import matplotlib.pyplot as plt
-s="MONGOLIA-UB"
-
-download.downloadFullDay(2022,1,2,station=s)
-dp = data.createFromTime(2022,1,3,0,0,0, station=s)
-dp.plot()
-
-dp.createSummedCurve([45,200])
-plt.plot(dp.summedCurve)
-plt.show()
-
-avg_ = []
-for i in dp.spectrum_data.data:
-    avg_.append(np.std(i))
-avg_ = np.median(avg_)
-for i in dp.spectrum_data.data:
-    if np.std(i) > avg_* 10 :
-        avg = np.mean(i)
-        i[:] = avg
-
-dp.plot()
-dp.createSummedCurve([45,200])
-plt.plot(dp.summedCurve)
-plt.show()
