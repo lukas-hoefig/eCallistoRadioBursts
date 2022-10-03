@@ -33,14 +33,14 @@ time = "03:32:00"
 dp1 = data.createFromTime(year, month, day, time, obs1, [45, 81])
 dp2 = data.createFromTime(year, month, day, time, obs2, [45, 81])
 
-cor1 = correlation.Correlation(dp1, dp2, day=day, _flatten=True, _bin_time=False, _bin_freq=False, _no_background=False,
-                               _r_window=180)
-cor1.calculatePeaks(_limit=0.6)
+cor1 = correlation.Correlation(dp1, dp2, day=day, flatten=True, bin_time=False, bin_freq=False, no_background=False,
+                               r_window=180)
+cor1.calculatePeaks(limit=0.6)
 print(cor1.fileName())
 print(cor1.peaks)
 
-cor = correlation.Correlation(dp1, dp2, day=day, _flatten=True, _bin_time=True, _bin_freq=True, _no_background=True,
-                              _r_window=30)
+cor = correlation.Correlation(dp1, dp2, day=day, flatten=True, bin_time=True, bin_freq=True, no_background=True,
+                              r_window=30)
 cor.calculatePeaks()
 print(cor.fileName())
 print(cor.peaks)

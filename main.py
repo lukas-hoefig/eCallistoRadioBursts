@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 import copy
-import pickle
 
 import download
 import stations
@@ -11,70 +10,70 @@ import analysis
 import events
 import data
 import correlation
-import reference
 import const
 
-_year = 2022
-_month = 1
-_day = 3
-_days = 3
 
-nobg = True
-bin_f = False
-bin_t = False
-flatten = True
-bin_t_w = 4
-flatten_w = 400
-r_w = 180
+def run1stSearch(*date, days=1, nobg=True, bin_f=False, bin_t=False, flatten=True, bin_t_w=4, flatten_w=400, r_w=180):
+    date_start = const.getDateFromArgs(*date)
+    limit = 0.6
+    time_step = timedelta(days=1)
 
-limit = 0.6
+    events_day = []
+    for i in range(days):
+        date = date_start + time_step * i
+        observatories = stations.getStations(date)
+        download.downloadFullDay(date, station=observatories)
+        sets = []
+        for j in observatories:
+            sets.extend(data.listDataPointDay(date, station=j))
+        e_list = events.EventList([])
+        for set1 in range(len(sets)):
+            for set2 in range(set1 + 1, len(sets)):
+                data1_raw = copy.deepcopy(sets[set1])
+                data2_raw = copy.deepcopy(sets[set2])
+                data1, data2 = data.fitTimeFrameDataSample(data1_raw, data2_raw)
+                if data1 and data2:
+                    corr = correlation.Correlation(data1, data2, date.day, no_background=nobg, bin_freq=bin_f,
+                                                   bin_time=bin_t, flatten=flatten, bin_time_width=bin_t_w,
+                                                   flatten_window=flatten_w, r_window=r_w)
+                    corr.calculatePeaks(limit=limit)
+                    e_list += corr.peaks
+                else:
+                    pass
+        try:
+            e_list.sort()
+        except AttributeError:
+            # empty list
+            pass
+        events_day.append(e_list)
+        analysis.saveData(date, event_list=e_list, step=1)
+    return events_day
 
-date_start = datetime(year=_year, month=_month, day=_day)
-time_step = timedelta(days=1)
-number_days = _days
 
-observatory = stations.getStations(date_start)
-
-events_day = []
-for i in range(number_days):
-    date = date_start + time_step * i
-    year = date.year
-    month = date.month
-    day = date.day
-    download.downloadFullDay(date_start, station=observatory)
-    sets = []
-    for j in observatory:
-        sets.extend(data.listDataPointDay(date_start, station=j))
+def run2ndSearch(*date, mask_freq=True, no_bg=True, bin_f=False, bin_t=True, flatten=True, bin_t_w=None, flatten_w=None,
+                 r_w=30):
+    date = const.getDateFromArgs(*date)
+    events_day = analysis.loadData(date, step=1)
     e_list = events.EventList([])
-    for set1 in range(len(sets)):
-        for set2 in range(set1 + 1, len(sets)):
-            data1_raw = copy.deepcopy(sets[set1])
-            data2_raw = copy.deepcopy(sets[set2])
-            data1, data2 = data.fitTimeFrameDataSample(data1_raw, data2_raw)
-            if data1 and data2:
-                corr = correlation.Correlation(data1, data2, day, _no_background=nobg, _bin_freq=bin_f,
-                                               _bin_time=bin_t, _flatten=flatten, _bin_time_width=bin_t_w,
-                                               _flatten_window=flatten_w, _r_window=r_w)
-                corr.calculatePeaks(_limit=limit)
-                e_list += corr.peaks
-            else:
-                pass
-    e_list.sort()
-    events_day.append(e_list)
-    #print(f"\n {date.year} {date.month} {date.day}")
-    #print("mine")
-    #print(e_list)
-    #print("reference SWPC")
-    #print(reference.referenceSWPC(year, month, day))
-    #print("reference Monstein")
-    #print(reference.referenceMonstein(year, month, day))
-    #print("reference Monstein with 2 or more stations")
-    #print(reference.referenceMonstein2orMore(year, month, day))
-    print(events_day)
-# return events_day
+    limit = 0.8
+
+    for event in events_day[:1]:
+
+        obs = stations.StationSet(event.stations)
+        set_obs = obs.getSet()
+        for i in set_obs:
+            dp1, dp2, cor = analysis.calcPoint(date, obs1=i[0], obs2=i[1], mask_frq=mask_freq, r_window=r_w,
+                                               flatten=flatten, bin_time=bin_t, bin_freq=bin_f, no_bg=no_bg,
+                                               flatten_window=bin_t_w, bin_time_width=flatten_w, limit=limit)
+
+            e_list += cor.peaks
+
+    analysis.saveData(date, event_list=e_list, step=2)
+    return e_list
+
 
 if __name__ == '__main__':
-    pass
+    run1stSearch(2022, 1, 2, days=5)
 
 
 # TODO 20.01. bug 9:18

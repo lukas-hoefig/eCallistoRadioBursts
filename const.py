@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+"""
+Paths, names, constants needed in several scripts
+
+:authors: 	Lukas Höfig
+:contact: 	lukas.hoefig@edu.uni-graz.at
+:date:       27.09.2022
+"""
+
+
 import os
 import matplotlib.pyplot as plt
 import datetime
@@ -43,6 +52,31 @@ def getColor():
 
 
 getColor.counter = 0
+
+
+def getDateFromArgs(*date):
+    """
+    returns a datetime object from any combination of input parameters
+
+    :param date: datetime, str, ints
+    :return: datetime object
+    """
+    if isinstance(date[0], datetime.datetime):
+        date_ = date[0]
+    elif len(date) > 2:
+        param = [2000, 1, 1, 0, 0, 0]
+        for i, j in enumerate(date):
+            param[i] = int(j)
+        year = param[0]
+        month = param[1]
+        day = param[2]
+        hour = param[3]
+        minute = param[4]
+        second = param[5]
+        date_ = datetime.datetime(year, month, day, hour, minute, second)
+    else:
+        raise ValueError("Arguments should be datetime, Integer or convertible to Integer")
+    return date_
 
 
 def pathDataDay(*args):
