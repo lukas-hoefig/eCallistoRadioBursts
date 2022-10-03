@@ -8,7 +8,7 @@ functions and algorithm for the realtime implementation
 :contact: 	lukas.hoefig@edu.uni-graz.at
 :date:       02.10.2022
 """
-
+import copy
 import datetime
 import os
 import sys    # sys.argv   [0]name script [1-n] arguments
@@ -17,6 +17,7 @@ from typing import List
 import analysis
 import const
 import correlation
+import events
 import stations
 import download
 import nextcloud
@@ -85,12 +86,54 @@ if __name__ == '__main__':
     if len(files) < 2:
         raise AttributeError("Not Enough Stations")
     data_points = [sum(data.DataPoint(i) for i in j) for j in files]
-
+    event_list = events.EventList([])
     if len(data_points) == 2:
-        dp1, dp2, cor = analysis.calcPoint(datetime.datetime.today(), dp1=data_points[0], dp2=data_points[1],
-                                           obs1=data_points[0].observatory, obs2=data_points[1].observatory)
-        analysis.plotEverything(dp1, dp2, cor)
-        # TODO - correlation missing - error
-    # TODO 3 stations available
-    print("TODO 3 STATIONS")
-    
+        dp1, dp2, cor = analysis.calcPoint(datetime.datetime.today(), data_point_1=data_points[0],
+                                           data_point_2=data_points[1],
+                                           obs1=data_points[0].observatory, obs2=data_points[1].observatory,
+                                           mask_frq=True, limit=0.8, flatten=True, bin_time=True, bin_freq=False,
+                                           no_bg=True, r_window=30)
+        event_list += cor.peaks
+    else:
+        dp00 = copy.deepcopy(data_points[0])
+        dp01 = copy.deepcopy(data_points[1])
+        dp1, dp2, cor1 = analysis.calcPoint(datetime.datetime.now(), data_point_1=dp00, data_point_2=dp01,
+                                            obs1=data_points[0].observatory, obs2=data_points[1].observatory,
+                                            mask_frq=True, limit=0.8, flatten=True, bin_time=True, bin_freq=False,
+                                            no_bg=True, r_window=30)
+        try:
+            event_list += cor1.peaks
+        except AttributeError:
+            pass
+        dp10 = copy.deepcopy(data_points[0])
+        dp11 = copy.deepcopy(data_points[2])
+        dp1, dp2, cor2 = analysis.calcPoint(datetime.datetime.now(), data_point_1=dp10, data_point_2=dp11,
+                                            obs1=data_points[0].observatory, obs2=data_points[1].observatory,
+                                            mask_frq=True, limit=0.8, flatten=True, bin_time=True, bin_freq=False,
+                                            no_bg=True, r_window=30)
+        try:
+            event_list += cor2.peaks
+        except AttributeError:
+            pass
+
+        dp20 = copy.deepcopy(data_points[1])
+        dp21 = copy.deepcopy(data_points[2])
+        dp1, dp2, cor3 = analysis.calcPoint(datetime.datetime.now(), data_point_1=dp20, data_point_2=dp21,
+                                            obs1=data_points[0].observatory, obs2=data_points[1].observatory,
+                                            mask_frq=True, limit=0.8, flatten=True, bin_time=True, bin_freq=False,
+                                            no_bg=True, r_window=30)
+        try:
+            event_list += cor3.peaks
+        except AttributeError:
+            pass
+    if event_list:
+        station_names_list = [i.observatory.name for i in data_points]
+        if len(data_points) == 2:
+            station_names = f"{station_names_list[0]} and {station_names_list[1]}"
+        else:
+            station_names = f"{station_names_list[0]}, {station_names_list[1]} and {station_names_list[2]}"
+        print(f"Events found at {station_names}.")
+        print(event_list)
+    else:
+        print("No Event found.")
+

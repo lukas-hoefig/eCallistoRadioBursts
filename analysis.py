@@ -73,7 +73,7 @@ def maskBadFrequenciesPlot(datapoint: data.DataPoint, limit=mask_frq_limit):
     return mask
 
 
-def calcPoint(*date,  obs1: stations.Station, obs2: stations.Station, dp1=None, dp2=None,
+def calcPoint(*date, obs1: stations.Station, obs2: stations.Station, data_point_1=None, data_point_2=None,
               mask_frq=False, limit_frq=mask_frq_limit, extent=True, limit=correlation.CORRELATION_MIN,
               flatten=None, bin_time=None, bin_freq=None, no_bg=None, r_window=None,
               flatten_window=None, bin_time_width=None, method_bin_t=None, method_bin_f=None):
@@ -99,24 +99,24 @@ def calcPoint(*date,  obs1: stations.Station, obs2: stations.Station, dp1=None, 
     if method_bin_f is None:
         method_bin_f = 'median'
 
-    if dp1 is None and dp2 is None:
+    if data_point_1 is None and data_point_2 is None:
         date_ = const.getDateFromArgs(*date)
-        dp1 = data.createFromTime(date_, station=obs1, extent=extent)
-        dp2 = data.createFromTime(date_, station=obs2, extent=extent)
+        data_point_1 = data.createFromTime(date_, station=obs1, extent=extent)
+        data_point_2 = data.createFromTime(date_, station=obs2, extent=extent)
     else:
-        date_ = dp1.spectrum_data.start
+        date_ = data_point_1.spectrum_data.start
 
     if mask_frq:
-        mask1 = maskBadFrequencies(dp1, limit=limit_frq)
-        mask2 = maskBadFrequencies(dp2, limit=limit_frq)
-        dp1.spectrum_data.data[mask1, :] = np.nanmean(dp1.spectrum_data.data)
+        mask1 = maskBadFrequencies(data_point_1, limit=limit_frq)
+        mask2 = maskBadFrequencies(data_point_2, limit=limit_frq)
+        data_point_1.spectrum_data.data[mask1, :] = np.nanmean(data_point_1.spectrum_data.data)
 
-        dp2.spectrum_data.data[mask2, :] = np.nanmean(dp2.spectrum_data.data)
+        data_point_2.spectrum_data.data[mask2, :] = np.nanmean(data_point_2.spectrum_data.data)
     else:
         pass
 
-    dp1_cor = copy.deepcopy(dp1)
-    dp2_cor = copy.deepcopy(dp2)
+    dp1_cor = copy.deepcopy(data_point_1)
+    dp2_cor = copy.deepcopy(data_point_2)
 
     cor = correlation.Correlation(dp1_cor, dp2_cor, day=date_.day,
                                   flatten=flatten, bin_time=bin_time, bin_freq=bin_freq, no_background=no_bg,
@@ -126,11 +126,11 @@ def calcPoint(*date,  obs1: stations.Station, obs2: stations.Station, dp1=None, 
     print(cor.fileName())
     print(cor.peaks)
 
-    dp1.createSummedCurve()
-    dp2.createSummedCurve()
-    dp1.flattenSummedCurve(rolling_window=correlation.default_flatten_window)
-    dp2.flattenSummedCurve(rolling_window=correlation.default_flatten_window)
-    return dp1, dp2, cor
+    data_point_1.createSummedCurve()
+    data_point_2.createSummedCurve()
+    data_point_1.flattenSummedCurve(rolling_window=correlation.default_flatten_window)
+    data_point_2.flattenSummedCurve(rolling_window=correlation.default_flatten_window)
+    return data_point_1, data_point_2, cor
 
 
 def plotDatapoint(datapoint: data.DataPoint):
