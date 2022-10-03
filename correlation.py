@@ -66,18 +66,18 @@ class Correlation:
 
     def correlateCurves(self):
         if self.time_start_delta > 0:
-            curve1 = self.data_point_1.summedCurve[:-self.time_start_delta]
-            curve2 = self.data_point_2.summedCurve[self.time_start_delta:]
+            curve1 = self.data_point_1.summed_curve[:-self.time_start_delta]
+            curve2 = self.data_point_2.summed_curve[self.time_start_delta:]
             self.time_axis = self.time_axis[:-self.time_start_delta]
 
         elif self.time_start_delta < 0:
-            curve1 = self.data_point_1.summedCurve[-self.time_start_delta:]
-            curve2 = self.data_point_2.summedCurve[:self.time_start_delta]
+            curve1 = self.data_point_1.summed_curve[-self.time_start_delta:]
+            curve2 = self.data_point_2.summed_curve[:self.time_start_delta]
             self.time_axis = self.time_axis[-self.time_start_delta:]
 
         else:
-            curve1 = self.data_point_1.summedCurve
-            curve2 = self.data_point_2.summedCurve
+            curve1 = self.data_point_1.summed_curve
+            curve2 = self.data_point_2.summed_curve
 
         if len(curve1) > len(curve2):
             self.time_axis = self.time_axis[:-abs(len(curve1) - len(curve2))]

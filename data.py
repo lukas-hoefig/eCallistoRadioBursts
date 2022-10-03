@@ -34,7 +34,7 @@ class DataPoint:
     def __init__(self, file: str):
         self.spectrum_data = None
         self.number_values = None
-        self.summedCurve = []
+        self.summed_curve = []
         self.binned_freq = False
         self.binned_time = False
         self.binned_time_width = 1
@@ -235,8 +235,8 @@ class DataPoint:
         freq_low = (np.where(self.spectrum_data.freq_axis == min(
             self.spectrum_data.freq_axis[self.spectrum_data.freq_axis >= frequency_range[0]])))[0][0]
 
-        self.summedCurve = [np.nansum(self.spectrum_data.data.transpose()[time][freq_high:freq_low + 1]) for time
-                            in range(self.number_values)]
+        self.summed_curve = [np.nansum(self.spectrum_data.data.transpose()[time][freq_high:freq_low + 1]) for time
+                             in range(self.number_values)]
 
     def subtract_background(self):
         if self.background_subtracted:
@@ -246,18 +246,18 @@ class DataPoint:
 
     def flattenSummedCurve(self, rolling_window=CURVE_FLATTEN_WINDOW):
         if self.number_values > 3 * const.LENGTH_FILES_MINUTES * 60 * const.DATA_POINTS_PER_SECOND:
-            median = np.array(pd.Series(self.summedCurve).rolling(rolling_window).median())
+            median = np.array(pd.Series(self.summed_curve).rolling(rolling_window).median())
             self.flattened_window = rolling_window
         else:
-            median = np.nanmedian(self.summedCurve)
+            median = np.nanmedian(self.summed_curve)
             self.flattened_window = 0
-        arr = np.array(self.summedCurve)
-        self.summedCurve = arr - median
+        arr = np.array(self.summed_curve)
+        self.summed_curve = arr - median
         self.flattened = True
 
     def plotSummedCurve(self, ax, peaks=None, label=None, color=None):
-        return plotCurve(self.spectrum_data.time_axis, self.summedCurve, self.spectrum_data.start.timestamp(),
-                  self.binned_time, self.binned_time_width, ax, peaks=peaks, new_ax=True, label=label, color=color)
+        return plotCurve(self.spectrum_data.time_axis, self.summed_curve, self.spectrum_data.start.timestamp(),
+                         self.binned_time, self.binned_time_width, ax, peaks=peaks, new_ax=True, label=label, color=color)
 
     def fileName(self):
         return "{}_{}_{}_{}{}{}{}{}.png"\
