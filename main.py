@@ -12,6 +12,8 @@ import data
 import correlation
 import const
 
+# TODO: analysis -> search peaks integrated into calc point
+
 
 def run1stSearch(*date, days=1, nobg=True, bin_f=False, bin_t=False, flatten=True, bin_t_w=4, flatten_w=400, r_w=180):
     date_start = const.getDateFromArgs(*date)
@@ -37,7 +39,10 @@ def run1stSearch(*date, days=1, nobg=True, bin_f=False, bin_t=False, flatten=Tru
                                                    bin_time=bin_t, flatten=flatten, bin_time_width=bin_t_w,
                                                    flatten_window=flatten_w, r_window=r_w)
                     corr.calculatePeaks(limit=limit)
-                    e_list += corr.peaks
+                    try:
+                        e_list += corr.peaks
+                    except AttributeError:
+                        pass
                 else:
                     pass
         try:
@@ -73,7 +78,7 @@ def run2ndSearch(*date, mask_freq=True, no_bg=True, bin_f=False, bin_t=True, fla
 
 
 if __name__ == '__main__':
-    run1stSearch(2022, 1, 2, days=5)
+    run1stSearch(2022, 1, 1, days=5)
 
 
 # TODO 20.01. bug 9:18
