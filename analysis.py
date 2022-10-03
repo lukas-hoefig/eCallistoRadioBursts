@@ -208,7 +208,7 @@ def plotEverything(dp1, dp2, cor):
         time_axis_plot2.append(datetime.fromtimestamp(_time_start + i).strftime("%Y %m %d %H:%M:%S"))
     time_axis_plot2 = pd.to_datetime(time_axis_plot2)
     dataframe2 = pd.DataFrame()
-    dataframe2['data'] = dp1.summedCurve
+    dataframe2['data'] = dp1.summed_curve
     dataframe2 = dataframe2.set_index(time_axis_plot2)
     plot_dat = ax3.plot(dataframe2, color="blue", linewidth=1, label=f"Summed Intensity Curve {dp1.observatory.name}")
 
@@ -219,7 +219,7 @@ def plotEverything(dp1, dp2, cor):
         time_axis_plot3.append(datetime.fromtimestamp(_time_start + i).strftime("%Y %m %d %H:%M:%S"))
     time_axis_plot3 = pd.to_datetime(time_axis_plot3)
     dataframe3 = pd.DataFrame()
-    dataframe3['data'] = dp2.summedCurve
+    dataframe3['data'] = dp2.summed_curve
     dataframe3 = dataframe3.set_index(time_axis_plot3)
     plot_dat2 = ax4.plot(dataframe3, color="cyan", linewidth=1, label=f"Summed Intensity Curve {dp2.observatory.name}")
 
@@ -250,11 +250,11 @@ def peaksInData(dp1, dp2, plot=False, peak_limit=2):
     """
 
     """
-    x1 = np.array(dp1.summedCurve)
+    x1 = np.array(dp1.summed_curve)
     lim1 = peak_limit * np.nanstd(x1)
     scipy_peaks1 = find_peaks(x1, height=lim1)[0]
 
-    x2 = np.array(dp2.summedCurve)
+    x2 = np.array(dp2.summed_curve)
     lim2 = peak_limit * np.nanstd(x2)
     scipy_peaks2 = find_peaks(x2, height=lim2)[0]
 
@@ -293,7 +293,7 @@ def peaksInData(dp1, dp2, plot=False, peak_limit=2):
             time_axis_plot1.append(datetime.fromtimestamp(_time_start + i).strftime("%Y %m %d %H:%M:%S"))
         time_axis_plot1 = pd.to_datetime(time_axis_plot1)
         dataframe1 = pd.DataFrame()
-        dataframe1['data'] = dp1.summedCurve
+        dataframe1['data'] = dp1.summed_curve
         dataframe1 = dataframe1.set_index(time_axis_plot1)
         plt.plot(dataframe1, color="red", linewidth=2, label=f"{dp1.observatory}")
         for i in scipy_peaks1:
@@ -304,7 +304,7 @@ def peaksInData(dp1, dp2, plot=False, peak_limit=2):
             time_axis_plot2.append(datetime.fromtimestamp(_time_start + i).strftime("%Y %m %d %H:%M:%S"))
         time_axis_plot2 = pd.to_datetime(time_axis_plot2)
         dataframe2 = pd.DataFrame()
-        dataframe2['data'] = dp2.summedCurve
+        dataframe2['data'] = dp2.summed_curve
         dataframe2 = dataframe2.set_index(time_axis_plot2)
         plt.plot(dataframe2, color="blue", linewidth=1, label=f"{dp2.observatory}")
         for i in scipy_peaks2:
