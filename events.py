@@ -102,13 +102,16 @@ class EventList:
         if isinstance(other, Event):
             return self.__radd__(other)
 
-        for i in other.events:
-            self.__radd__(i)
+        if isinstance(other, EventList):
+            temp = EventList([])
+            for i in other.events:
+                temp = self.__radd__(i)
+            return temp
 
     def __radd__(self, other):
         temp = copy.deepcopy(self)
         if other is None:
-            return self
+            return temp
 
         if not isinstance(other, Event):
             print(type(other))
@@ -136,7 +139,7 @@ class EventList:
                         event_tmp.stations.append(j)
                     else:
                         pass
-
+        print("99", temp)
         return temp
 
     def __sub__(self, other):

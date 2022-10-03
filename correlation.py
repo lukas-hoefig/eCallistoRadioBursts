@@ -74,13 +74,6 @@ class Correlation:
         curve1 = self.data_point_1.summed_curve
         curve2 = self.data_point_2.summed_curve
 
-        self.data_per_second_1 = np.round(self.data_point_1.number_values /
-                                          (self.data_point_1.spectrum_data.end - self.data_point_1.spectrum_data.start)
-                                          .total_seconds(), 2)
-        self.data_per_second_2 = np.round(self.data_point_2.number_values /
-                                          (self.data_point_2.spectrum_data.end - self.data_point_2.spectrum_data.start)
-                                          .total_seconds(), 2)
-
         if self.data_point_1.spectrum_data.start < self.data_point_2.spectrum_data.start:
             curve1 = curve1[int(self.data_per_second_1 * abs(delta_t_start)):]
         else:
@@ -210,9 +203,18 @@ class Correlation:
                               ax, peaks=peaks, new_ax=False, label=label, color=color)
 
     def modulateData(self):
+        self.data_per_second_1 = np.round(self.data_point_1.number_values /
+                                          (self.data_point_1.spectrum_data.end - self.data_point_1.spectrum_data.start)
+                                          .total_seconds(), 2)
+        self.data_per_second_2 = np.round(self.data_point_2.number_values /
+                                          (self.data_point_2.spectrum_data.end - self.data_point_2.spectrum_data.start)
+                                          .total_seconds(), 2)
+
         if self.bin_time:
             self.data_point_1.binDataTime(width=self.bin_time_width, method=self.method_bin_t)
             self.data_point_2.binDataTime(width=self.bin_time_width, method=self.method_bin_t)
+            self.data_per_second_1 = self.data_per_second_1 / self.bin_time_width
+            self.data_per_second_2 = self.data_per_second_2 / self.bin_time_width
         if self.bin_frequency:
             self.data_point_1.binDataFreq(method=self.method_bin_f)
             self.data_point_2.binDataFreq(method=self.method_bin_f)

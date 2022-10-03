@@ -74,7 +74,8 @@ def createLog(*date: datetime.datetime, station: List[str], _overwrite=True):
     if not station:
         return
     date_ = const.getDateFromArgs(*date)
-    if date_ == datetime.datetime.today().replace(hour=0, minute=0, second=0, microsecond=0):
+    today = datetime.datetime.today()
+    if date_.year == today.hour and date_.month == today.month and date_.day == today.day:
         return
 
     path_log = const.pathDataDay(date_)
