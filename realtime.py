@@ -64,9 +64,6 @@ def dropOld(list_str: List[List[str]]):
 
 
 def getFiles():
-    """
-    TODO switch dropold-only when a new file ?
-    """
     focus_codes = [stations.getFocusCode(datetime.datetime.today(), station=obs) for obs in observatories]
     files_all = os.listdir(pathData())
     files_stations = [[file for file in files_all
@@ -89,6 +86,7 @@ if __name__ == '__main__':
         dp1, dp2, cor = analysis.calcPoint(datetime.datetime.today(), dp1=data_points[0], dp2=data_points[1],
                                            obs1=data_points[0].observatory, obs2=data_points[1].observatory)
         analysis.plotEverything(dp1, dp2, cor)
-
+        # TODO - correlation missing - error
     # TODO 3 stations available
+    print("TODO 3 STATIONS")
     
