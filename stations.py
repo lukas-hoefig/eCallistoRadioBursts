@@ -97,7 +97,7 @@ def getFocusCode(*date, station: str):
         frq_axis = file[1].data['frequency'].flatten()
         frq = sorted([frq_axis[0], frq_axis[-1]])
         if frq[0] < frq_limit_low and frq[1] < frq_limit_high:
-            return files_station[0].rsplit("_")[-1].rstrip(".fit.gz")
+            return i.rsplit("_")[-1].rstrip(".fit.gz")
     return None
 
 

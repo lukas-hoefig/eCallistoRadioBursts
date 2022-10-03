@@ -29,6 +29,10 @@ token_auth = "token3"
 observatories = ["AUSTRIA-UNIGRAZ", "AUSTRIA-OE3FLB", "SWISS-Landschlacht"]
 
 
+def deleteOldFiles():
+    pass
+
+
 def getFilesFromExtern():
     path_dl = const.path_data + const.pathDataDay(datetime.datetime.today())
     # nextcloud.downloadFromCloud(token_download, path=path_dl)
@@ -65,7 +69,7 @@ def dropOld(list_str: List[List[str]]):
 
 def getFiles():
     focus_codes = [stations.getFocusCode(datetime.datetime.today(), station=obs) for obs in observatories]
-    files_all = os.listdir(pathData())
+    files_all = sorted(os.listdir(pathData()))
     files_stations = [[file for file in files_all
                        if file.startswith(observatory) and file.endswith(focus_codes[i] + const.file_ending)]
                       for i, observatory in enumerate(observatories)]
