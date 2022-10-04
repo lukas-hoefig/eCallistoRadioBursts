@@ -8,6 +8,7 @@ import matplotlib.dates as mdates
 import numpy as np
 import pandas as pd
 import copy
+import os
 import pickle
 
 import const
@@ -392,6 +393,9 @@ def saveData(*date, step: int, event_list: events.EventList):
     """
     """
     date_ = const.getDateFromArgs(*date)
+    file_name = filename(date_, step=step)
+    folder = file_name[:file_name.rfind("/")+1]
+    os.makedirs(folder)
     with open(filename(date_, step=step), "wb") as file:
         pickle.dump(event_list, file)
 

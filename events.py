@@ -139,7 +139,6 @@ class EventList:
                         event_tmp.stations.append(j)
                     else:
                         pass
-        print("99", temp)
         return temp
 
     def __sub__(self, other):
