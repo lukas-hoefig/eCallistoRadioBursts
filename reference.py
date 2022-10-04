@@ -15,7 +15,7 @@ reference_header_length = 12
 def fileNameSWPC(*date, next_folder=False):
     date_ = const.getDateFromArgs(*date)
     return f"{path_data}reference/{date_.year + next_folder}_events/" \
-           f"{date_.year}{str(date_.month).zfill(2)}{str(date_.day).zfill(2)}events.txt"
+           f"{date_.year}{date_.month:02}{date_.day:02}events.txt"
 
 
 def listSWPC(*date):
@@ -67,7 +67,7 @@ def urlMonstein(*date):
 
 def fileNameMonstein(*date):
     date_ = const.getDateFromArgs(*date)
-    return f"{path_data}reference/{str(date_.year)}_monstein/{str(date_.year)}{str(date_.month).zfill(2)}events.txt"
+    return f"{path_data}reference/{date_.year}_monstein/{date_.year}{date_.month:02}events.txt"
 
 
 def listMonstein(*date):

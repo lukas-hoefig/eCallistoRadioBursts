@@ -14,8 +14,8 @@ import os
 import matplotlib.pyplot as plt
 import datetime
 
-path_script = os.getcwd().replace("\\", "/") + "/"
-path_data = "eCallistoData/"
+# path_script = os.getcwd().replace("\\", "/") + "/"
+path_data = "eCallistoData/"                # "C:/Users/14hoefig/data/eCallisto/"                   #  "eCallistoData/"
 path_plots = "eCallistoPlots/"
 file_ending = ".fit.gz"
 e_callisto_url = 'http://soleil.i4ds.ch/solarradio/data/2002-20yy_Callisto/'
@@ -79,27 +79,15 @@ def getDateFromArgs(*date):
     return date_
 
 
-def pathDataDay(*args):
+def pathDataDay(*date):
     """
     creates string for the data paths <script>/eCallistoData/<year>/<month>/<day>/
 
-    :param args: datetime, integer: year, month, day
+    :param date: datetime, integer: year, month, day
     :return:
     """
-    if isinstance(args[0], datetime.datetime):
-        year = args[0].year
-        month = args[0].month
-        day = args[0].day
-    elif len(args) > 2:
-        for i in args:
-            if not isinstance(i, int):
-                raise ValueError("Arguments should be datetime or Integer")
-        year = args[0]
-        month = args[1]
-        day = args[2]
-    else:
-        raise ValueError("Arguments should be datetime or multiple Integer as year, month, day")
-    return path_script + path_data + f"{year}/{month:02}/{day:02}/"
+    date_ = getDateFromArgs(*date)
+    return path_data + f"{date_.year}/{date_.month:02}/{date_.day:02}/"
 
 
 setupMatPlotLib()

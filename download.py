@@ -11,8 +11,6 @@ from typing import List, Union, Tuple
 import const
 import stations
 
-path_script = const.path_script
-path_data = const.path_data
 file_log = ".datalog"
 
 

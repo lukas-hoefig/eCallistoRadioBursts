@@ -16,8 +16,6 @@ import stations
 import download
 import events
 
-path_script = const.path_script
-path_data = const.path_data
 file_ending = const.file_ending
 FREQ_MIN = 0
 FREQ_MAX = 1
@@ -56,7 +54,7 @@ class DataPoint:
 
         self.observatory = stations.getStationFromFile(const.pathDataDay(self.date) + file)
         self.spectral_range_id = reader[3][:2]
-        self.path = path_data + str(self.year) + "/" + str(self.month).zfill(2) + "/" + str(self.day).zfill(2) + "/"
+        self.path = const.pathDataDay(self.date)
 
         self.readFile()
         if not self:

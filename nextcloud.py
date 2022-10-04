@@ -24,7 +24,7 @@ token_download = "iKwKK25HwCz5jja"
 token_upload = "sBLCnTW8fJBtpLD"
 token_security = "oobta-Lngif-m2pZ7-HLxip-FWEXc"
 
-path_download = const.path_script + const.path_data + 'realtime/'
+path_download = const.path_data + 'realtime/'
 
 
 def deleteOnCloud(file: str, handle_token, secure_token) -> None:
@@ -72,7 +72,6 @@ def downloadFromCloud(token, path=path_download, delete=False, token_login=None)
 
     local_file = path + 'tmp.zip'
     if not os.path.isdir(path):
-
         os.makedirs(path)
     with zipfile.ZipFile(local_file, 'w'):
         pass

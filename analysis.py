@@ -123,8 +123,6 @@ def calcPoint(*date, obs1: stations.Station, obs2: stations.Station, data_point_
                                   r_window=r_window, flatten_window=flatten_window, bin_time_width=bin_time_width,
                                   method_bin_t=method_bin_t, method_bin_f=method_bin_f)
     cor.calculatePeaks(limit=limit)
-    print(cor.fileName())
-    print(cor.peaks)
 
     data_point_1.createSummedCurve()
     data_point_2.createSummedCurve()
@@ -336,8 +334,52 @@ def peaksInData(dp1: data.DataPoint, dp2: data.DataPoint, plot=False, peak_limit
         plt.legend(loc="upper left")
         plt.show()
 
-    print(events_)
     return events_
+
+
+def getEvents(*args, mask_frq=None, r_window=None,
+              flatten=None, bin_time=None, bin_freq=None, no_bg=None,
+              flatten_window=None, bin_time_width=None, limit=None):
+    date = None
+    dp1 = None
+    dp2 = None
+    obs1 = None
+    obs2 = None
+    for i in args:
+        if isinstance(i, data.DataPoint) and dp1 is None:
+            dp1 = i
+            obs1 = i.observatory
+            continue
+        if isinstance(i, data.DataPoint) and dp1 is not None:
+            dp2 = i
+            obs2 = i.observatory
+            continue
+        if isinstance(i, datetime) and date is None:
+            date = i
+            continue
+        if isinstance(i, str) or isinstance(i, stations.Station):
+            obs1 = i
+            continue
+        if (isinstance(i, str) or isinstance(i, stations.Station)) and obs1 is not None:
+            obs2 = i
+            continue
+    if dp1 is not None and dp2 is not None:
+        date = dp1.spectrum_data.start
+
+    if date is None or obs2 is None:
+        raise ValueError("Needs either datetime and 2 stations   or   2 datapoints as args")
+
+    e_list = events.EventList([])
+    dp1, dp2, cor = calcPoint(date, obs1=obs1, obs2=obs2, data_point_1=dp1, data_point_2=dp2,
+                              mask_frq=mask_frq, r_window=r_window,
+                              flatten=flatten, bin_time=bin_time, bin_freq=bin_freq, no_bg=no_bg,
+                              flatten_window=flatten_window, bin_time_width=bin_time_width, limit=limit)
+
+    event_peaks = peaksInData(dp1, dp2)
+    for peak in cor.peaks:
+        if peak.inList(event_peaks):
+            e_list += peak
+    return e_list
 
 
 def filename(*date, step: int):

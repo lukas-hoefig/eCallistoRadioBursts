@@ -8,6 +8,8 @@ functions and algorithm for the realtime implementation
 :contact: 	lukas.hoefig@edu.uni-graz.at
 :date:       02.10.2022
 """
+
+
 import copy
 import datetime
 import os
@@ -42,7 +44,7 @@ def getFilesFromExtern():
 
 def pathData():
     today = datetime.datetime.today()
-    return const.path_script + const.path_data + f"{today.year}/{today.month:02}/{today.day:02}/"
+    return const.pathDataDay(today)
 
 
 def getDate(file: str):

@@ -3,6 +3,7 @@
 
 from datetime import timedelta
 import copy
+import numpy as np
 
 import download
 import stations
@@ -15,7 +16,8 @@ import const
 # TODO: analysis -> search peaks integrated into calc point
 
 
-def run1stSearch(*date, days=1, nobg=True, bin_f=False, bin_t=False, flatten=True, bin_t_w=4, flatten_w=400, r_w=180):
+def run1stSearch(*date, days=1, mask_frq=False, nobg=True, bin_f=False, bin_t=False,
+                 flatten=True, bin_t_w=4, flatten_w=400, r_w=180):
     date_start = const.getDateFromArgs(*date)
     limit = 0.6
     time_step = timedelta(days=1)
@@ -34,13 +36,22 @@ def run1stSearch(*date, days=1, nobg=True, bin_f=False, bin_t=False, flatten=Tru
                 data1_raw = copy.deepcopy(sets[set1])
                 data2_raw = copy.deepcopy(sets[set2])
                 data1, data2 = data.fitTimeFrameDataSample(data1_raw, data2_raw)
+
                 if data1 and data2:
+                    if mask_frq:
+                        mask1 = analysis.maskBadFrequencies(data1)
+                        mask2 = analysis.maskBadFrequencies(data2)
+                        data1.spectrum_data.data[mask1] = np.nanmean(data1.spectrum_data.data)
+                        data2.spectrum_data.data[mask2] = np.nanmean(data2.spectrum_data.data)
                     corr = correlation.Correlation(data1, data2, date.day, no_background=nobg, bin_freq=bin_f,
                                                    bin_time=bin_t, flatten=flatten, bin_time_width=bin_t_w,
                                                    flatten_window=flatten_w, r_window=r_w)
                     corr.calculatePeaks(limit=limit)
                     try:
-                        e_list += corr.peaks
+                        event_peaks = analysis.peaksInData(data1, data2)
+                        for peak in corr.peaks:
+                            if peak.inList(event_peaks):
+                                e_list += peak
                     except AttributeError:
                         pass
                 else:
@@ -71,14 +82,18 @@ def run2ndSearch(*date, mask_freq=True, no_bg=True, bin_f=False, bin_t=True, fla
                                                flatten=flatten, bin_time=bin_t, bin_freq=bin_f, no_bg=no_bg,
                                                flatten_window=bin_t_w, bin_time_width=flatten_w, limit=limit)
 
-            e_list += cor.peaks
+            event_peaks = analysis.peaksInData(dp1, dp2)
+            for peak in cor.peaks:
+                if peak.inList(event_peaks):
+                    e_list += peak
 
     analysis.saveData(date, event_list=e_list, step=2)
     return e_list
 
 
 if __name__ == '__main__':
-    run1stSearch(2022, 1, 1, days=5)
+    run1stSearch(2022, 1, 4, days=1, mask_frq=True)
+    run2ndSearch(2022, 1, 4)
 
 
 # TODO 20.01. bug 9:18
