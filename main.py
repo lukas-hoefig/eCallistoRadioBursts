@@ -4,6 +4,7 @@
 from datetime import timedelta
 import copy
 import numpy as np
+import sys
 
 import download
 import stations
@@ -92,8 +93,14 @@ def run2ndSearch(*date, mask_freq=True, no_bg=True, bin_f=False, bin_t=True, fla
 
 
 if __name__ == '__main__':
-    run1stSearch(2022, 1, 4, days=1, mask_frq=True)
-    run2ndSearch(2022, 1, 4)
+    input_arg = sys.argv
+    args = [2022, 1, 1, 1]
+    if input_arg and len(input_arg) > 2:
+        for i, j in enumerate(input_arg[1:]):
+            args[i] = int(j)
+    run1stSearch(*args[:-1], days=args[-1], mask_frq=True)
+    for i in range(args[-2], args[-2] + args[-1]):
+        run2ndSearch(args[:-2], i)
 
 
 # TODO 20.01. bug 9:18
