@@ -14,6 +14,7 @@ import requests
 import zipfile
 import os
 import shutil
+import gzip
 
 import const
 
@@ -25,6 +26,17 @@ token_upload = "sBLCnTW8fJBtpLD"
 token_security = "oobta-Lngif-m2pZ7-HLxip-FWEXc"
 
 path_download = const.path_data + 'realtime/'
+
+
+def unzip(folder: str):
+    for file in os.listdir(folder):
+        if file.endswith(const.file_type_zip):
+            name_zipped = folder + file
+            name_unzipped = (folder + file).rstrip(".gz")
+            with gzip.open(name_zipped, "rb") as zipped:
+                with open(name_unzipped, "wb+") as pure:
+                    shutil.copyfileobj(zipped, pure)
+            os.remove(name_zipped)
 
 
 def deleteOnCloud(file: str, handle_token, secure_token) -> None:
