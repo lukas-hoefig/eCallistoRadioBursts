@@ -40,6 +40,7 @@ def getFilesFromExtern():
     path_dl = const.path_data + const.pathDataDay(datetime.datetime.today())
     # nextcloud.downloadFromCloud(token_download, path=path_dl)
     download.downloadFullDay(datetime.datetime.today(), station=observatories)
+    nextcloud.unzip(path_dl)
 
 
 def pathData():
