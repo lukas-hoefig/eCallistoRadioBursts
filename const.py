@@ -14,22 +14,6 @@ import os
 import matplotlib.pyplot as plt
 import datetime
 
-# path_script = os.getcwd().replace("\\", "/") + "/"
-path_data = "eCallistoData/"                # "C:/Users/14hoefig/data/eCallisto/"                   #  "eCallistoData/"
-path_plots = "eCallistoPlots/"
-file_ending = ".fit.gz"
-e_callisto_url = 'http://soleil.i4ds.ch/solarradio/data/2002-20yy_Callisto/'
-DATA_POINTS_PER_SECOND = 4
-LENGTH_FILES_MINUTES = 15
-BIN_FACTOR = 4
-ROLL_WINDOW = 180
-even_time_format = "%H:%M:%S"
-plot_colors = ['blue', 'red', 'purple', 'green', 'yellow']
-
-frq_limit_low = 50.
-frq_limit_high = 900.
-spectral_range = [45, 81]
-
 
 def setupMatPlotLib():
     # Properties to control fontsizes in plots
@@ -88,6 +72,34 @@ def pathDataDay(*date):
     """
     date_ = getDateFromArgs(*date)
     return path_data + f"{date_.year}/{date_.month:02}/{date_.day:02}/"
+
+
+def getPathScript():
+    path_file = os.path.abspath(__file__).replace("\\", "/")
+    pos = path_file.rfind("/")
+    path = path_file[:pos + 1]
+    return path
+
+
+path_script = getPathScript()
+path_data = "eCallistoData/"                # "C:/Users/14hoefig/data/eCallisto/"                   #  "eCallistoData/"
+path_plots = "eCallistoPlots/"
+file_type = ".fit"
+file_type_zip = ".fit.gz"
+file_ending = file_type_zip
+e_callisto_url = 'http://soleil.i4ds.ch/solarradio/data/2002-20yy_Callisto/'
+DATA_POINTS_PER_SECOND = 4
+LENGTH_FILES_MINUTES = 15
+BIN_FACTOR = 4
+ROLL_WINDOW = 180
+even_time_format = "%H:%M:%S"
+plot_colors = ['blue', 'red', 'purple', 'green', 'yellow']
+
+frq_limit_low = 50.
+frq_limit_high = 900.
+spectral_range = [45, 81]
+
+
 
 
 setupMatPlotLib()
