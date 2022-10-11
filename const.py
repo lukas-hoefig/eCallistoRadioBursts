@@ -82,7 +82,7 @@ def getPathScript():
 
 
 path_script = getPathScript()
-path_data = "eCallistoData/"                # "C:/Users/14hoefig/data/eCallisto/"                   #  "eCallistoData/"
+path_data = path_script + "eCallistoData/"                # "C:/Users/14hoefig/data/eCallisto/"                   #  "eCallistoData/"
 path_plots = "eCallistoPlots/"
 file_type = ".fit"
 file_type_zip = ".fit.gz"
@@ -97,9 +97,6 @@ plot_colors = ['blue', 'red', 'purple', 'green', 'yellow']
 
 frq_limit_low = 50.
 frq_limit_high = 900.
-spectral_range = [45, 81]
-
-
 
 
 setupMatPlotLib()

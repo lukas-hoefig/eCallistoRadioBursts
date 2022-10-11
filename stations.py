@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Paths, names, constants needed in several scripts
+everything important about the several Callisto stations
 
 :authors: 	Lukas Höfig
 :contact: 	lukas.hoefig@edu.uni-graz.at

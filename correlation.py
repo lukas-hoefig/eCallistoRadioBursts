@@ -42,6 +42,13 @@ class Correlation:
 
         self.day = day
 
+        if self.data_point_1.spectrum_data.start.day == self.day:
+            self.date = self.data_point_1.spectrum_data.start.day
+        elif (self.data_point_1.spectrum_data.start + timedelta(days=1)) == self.day:
+            self.date = self.data_point_1.spectrum_data.start + timedelta(days=1)
+        else:
+            self.date = self.data_point_1.spectrum_data.start - timedelta(days=1)
+
         self.no_background = no_background
         self.bin_frequency = bin_freq
         self.bin_time = bin_time
@@ -52,7 +59,7 @@ class Correlation:
         self.method_bin_f = method_bin_f
         self.method_bin_t = method_bin_t
 
-        self.peaks = events.EventList([])
+        self.peaks = events.EventList([], self.date)
         self.frequency_range = None
         self.time_axis = None
         self.time_start = None

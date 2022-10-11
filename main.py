@@ -5,6 +5,7 @@ from datetime import timedelta
 import copy
 import numpy as np
 import sys
+import warnings
 
 import download
 import stations
@@ -74,19 +75,32 @@ def run2ndSearch(*date, mask_freq=True, no_bg=True, bin_f=False, bin_t=True, fla
     e_list = events.EventList([])
     limit = 0.8
 
-    for event in events_day[:1]:
-
+    for event in events_day:
         obs = stations.StationSet(event.stations)
         set_obs = obs.getSet()
         for i in set_obs:
-            dp1, dp2, cor = analysis.calcPoint(date, obs1=i[0], obs2=i[1], mask_frq=mask_freq, r_window=r_w,
-                                               flatten=flatten, bin_time=bin_t, bin_freq=bin_f, no_bg=no_bg,
-                                               flatten_window=bin_t_w, bin_time_width=flatten_w, limit=limit)
-
-            event_peaks = analysis.peaksInData(dp1, dp2)
-            for peak in cor.peaks:
-                if peak.inList(event_peaks):
-                    e_list += peak
+            try:
+                dp1_peak = data.createFromTime(event.time_start, station=i[0], extent=False)
+                dp2_peak = data.createFromTime(event.time_start, station=i[1], extent=False)
+                dp1_peak.createSummedCurve()
+                dp2_peak.createSummedCurve()
+                dp1_peak.flattenSummedCurve()
+                dp2_peak.flattenSummedCurve()
+                event_peaks = analysis.peaksInData(dp1_peak, dp2_peak)
+                if not event.inList(event_peaks):
+                    pass
+                else:
+                    dp1, dp2, cor = analysis.calcPoint(event.time_start, obs1=i[0], obs2=i[1], mask_frq=mask_freq,
+                                                       r_window=r_w,
+                                                       flatten=flatten, bin_time=bin_t, bin_freq=bin_f, no_bg=no_bg,
+                                                       flatten_window=bin_t_w, bin_time_width=flatten_w, limit=limit)
+                    for peak in cor.peaks:
+                        if peak.inList(event_peaks):
+                            e_list += peak
+                        else:
+                            pass
+            except FileNotFoundError:
+                warnings.warn(message="Some file not found", category=UserWarning)
 
     analysis.saveData(date, event_list=e_list, step=2)
     return e_list

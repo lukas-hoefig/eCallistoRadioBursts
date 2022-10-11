@@ -25,7 +25,7 @@ token_download = "iKwKK25HwCz5jja"
 token_upload = "sBLCnTW8fJBtpLD"
 token_security = "oobta-Lngif-m2pZ7-HLxip-FWEXc"
 
-path_download = const.path_data + 'realtime/'
+path_download = const.path_data
 
 
 def unzip(folder: str):

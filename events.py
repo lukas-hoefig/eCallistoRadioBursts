@@ -16,6 +16,16 @@ BIN_FACTOR = const.BIN_FACTOR
 BURST_TYPE_UNKNOWN = "???"
 
 
+def header():
+    return f"# Product: e-CALLISTO automated search\n"\
+           f"# Please send comments and suggestions to lukas.hoefig.edu.uni-graz.at\n"\
+           f"#     or for general questions, comments or suggestions: christian.monstein(at)irsol.usi.ch\n"\
+           f"# Missing data: ##:##-##:##\n" \
+           f"#\n"\
+           f"#Date		Time		Type	Stations\n"\
+           f"#-------------------------------------------------------------------------------\n"
+
+
 class Time(datetime):
     def __str__(self):
         return f"{self.hour:02}:{self.minute:02}:{self.second:02}"
@@ -58,12 +68,14 @@ class Event:
         self.time_end = Time(time.year, time.month, time.day, time.hour, time.minute, time.second)
 
     def compare(self, other):
-        return min(abs(self.time_end - other.time_start).total_seconds(),
-                   abs(self.time_start - other.time_end).total_seconds(),
-                   abs(self.time_start - other.time_start).total_seconds()) < \
-                   timedelta(seconds=TIME_TOLERANCE).total_seconds() or \
-                   (self.time_start < other.time_start and self.time_end > other.time_end) or \
-                   (other.time_start < self.time_start and other.time_end > self.time_end)
+        delta_start = abs((self.time_start - other.time_start).total_seconds())
+        delta_end  = abs((self.time_end - other.time_end).total_seconds())
+        delta_e1s2 = abs((self.time_end - other.time_start).total_seconds())
+        delta_e2s1 = abs((self.time_start - other.time_end).total_seconds())
+
+        return min(delta_start, delta_end, delta_e1s2, delta_e2s1) < timedelta(seconds=TIME_TOLERANCE).total_seconds() \
+            or (self.time_start < other.time_start and self.time_end > other.time_end) \
+            or (other.time_start < self.time_start and other.time_end > self.time_end)
 
     def __eq__(self, other):
         return self.compare(other)
@@ -82,8 +94,9 @@ class Event:
 
 
 class EventList:
-    def __init__(self, events: Union[Event, List[Event]]):
+    def __init__(self, events: Union[Event, List[Event]], *date):
         self.events = []
+        self.date = const.getDateFromArgs(*date)
         if isinstance(events, Event):
             self.events = [events]
         elif isinstance(events, list):
@@ -176,3 +189,13 @@ class EventList:
 
     def sort(self):
         self.events = sorted(self.events, key=lambda event: event.time_start)
+
+    def printOut(self):
+        if not self:
+            return f"{self.date.year}{self.date.month:02}{self.date.day:02}\t##:##-##:##"
+        else:
+            str_return = "\n".join([f"{self.date.year}{self.date.month:02}{self.date.day:02}\t"
+                                    f"{e.time_start.hour:02}:{e.time_start.minute:02}-"
+                                    f"{e.time_end.hour:02}:{e.time_end.minute:02}\t{e.burst_type}\t"
+                                    f"{', '.join([stat.name for stat in e.stations])}" for e in self.events])
+            return str_return
