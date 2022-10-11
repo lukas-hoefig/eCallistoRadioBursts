@@ -1,373 +1,169 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import data
-import observatories
+from datetime import timedelta
+import copy
+import numpy as np
+import sys
+import warnings
+
 import download
+import stations
 import analysis
+import events
+import data
+import correlation
+import const
+
+# TODO: analysis -> search peaks integrated into calc point
 
 
-def missingThings():
-    """
-    TODO: unify spectral range declaration of observatories -> search possible
+def run1stSearch(*date, days=1, mask_frq=False, nobg=True, bin_f=False, bin_t=False,
+                 flatten=True, bin_t_w=4, flatten_w=400, r_w=180):
+    date_start = const.getDateFromArgs(*date)
+    limit = 0.6
+    time_step = timedelta(days=1)
 
-    TODO: save graphic to file (ideally without plotting) plt.savefig('foo.png') -> functn needs info -> naming file
+    events_day = []
+    for i in range(days):
+        date = date_start + time_step * i
+        observatories = stations.getStations(date)
+        download.downloadFullDay(date, station=observatories)
+        sets = []
+        for j in observatories:
+            sets.extend(data.listDataPointDay(date, station=j))
+        e_list = events.EventList([])
+        for set1 in range(len(sets)):
+            for set2 in range(set1 + 1, len(sets)):
+                data1_raw = copy.deepcopy(sets[set1])
+                data2_raw = copy.deepcopy(sets[set2])
+                data1, data2 = data.fitTimeFrameDataSample(data1_raw, data2_raw)
 
-    TODO: import calender -automated run through longer timeframes
-
-    TODO: os module - test linux/windows specifics
-    """
-    pass
-
-
-year_1 = 2020
-month_1 = 10
-day_1 = 27
-spec_range = [45, 81]
-
-year_2 = 2021
-month_2 = 9
-day_2 = 6
-
-
-def show_1():
-    """
-    ganzer tag (herunterladen)
-    mehrere observatories
-    korrelationskurve berechnen (plotten)
-    peaks suchen, zeitpunkt bestimmen
-    """
-    year = year_1
-    month = month_1
-    day = day_1
-
-    obs_list = observatories.observatory_list
-    download.downloadFullDay(year, month, day, observatories.observatory_list)
-    obs_0 = observatories.observatory_dict[obs_list[0]]
-    obs_1 = observatories.observatory_dict[obs_list[1]]
-    obs_2 = observatories.observatory_dict[obs_list[2]]
-    obs_3 = observatories.observatory_dict[obs_list[3]]
-
-    download.downloadFullDay(year, month, day, obs_list)
-    corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
-                                                                  _plot=True, _bin_time=False)
-    # corr1, time1, obs1 = analysis.correlateLightCurveDay(year, month, day, obs_0, obs_2, spec_range)
-    # corr2, time2, obs2 = analysis.correlateLightCurveDay(year, month, day, obs_0, obs_3, spec_range,
-    #                                                              _plot=True)
-    # corr3, time3, obs3 = analysis.correlateLightCurveDay(year, month, day, obs_1, obs_2, spec_range)
-    # corr4, time4, obs4 = analysis.correlateLightCurveDay(year, month, day, obs_1, obs_3, spec_range)
-    analysis.getPeaksFromCorrelation(corr0, time0, obs0)
-    # analysis.getPeaksFromCorrelation(corr1, time1, obs1)
-    # analysis.getPeaksFromCorrelation(corr2, time2, obs2)
-    # analysis.getPeaksFromCorrelation(corr3, time3, obs3)
-    # analysis.getPeaksFromCorrelation(corr4, time4, obs4)
-
-    corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
-                                                                  _plot=True, _no_background=True, _bin_time=False)
-    analysis.getPeaksFromCorrelation(corr0, time0, obs0)
-    """
-    http://soleil.i4ds.ch/solarradio/data/BurstLists/2010-yyyy_Monstein/2020/e-CALLISTO_2020_10.txt
-    03: 24 - 03:24
-    06: 00 - 06:02    
-    08: 50 - 08:52   *
-    10: 57 - 10:58   *
-    11: 43 - 11:43   *
-    15: 49 - 15:49
-    15: 53 - 15:53
-    16: 35 - 16:35
-    17: 16 - 17:17
-    17: 24 - 17:26
-    """
+                if data1 and data2:
+                    if mask_frq:
+                        mask1 = analysis.maskBadFrequencies(data1)
+                        mask2 = analysis.maskBadFrequencies(data2)
+                        data1.spectrum_data.data[mask1] = np.nanmean(data1.spectrum_data.data)
+                        data2.spectrum_data.data[mask2] = np.nanmean(data2.spectrum_data.data)
+                    corr = correlation.Correlation(data1, data2, date.day, no_background=nobg, bin_freq=bin_f,
+                                                   bin_time=bin_t, flatten=flatten, bin_time_width=bin_t_w,
+                                                   flatten_window=flatten_w, r_window=r_w)
+                    corr.calculatePeaks(limit=limit)
+                    try:
+                        event_peaks = analysis.peaksInData(data1, data2)
+                        for peak in corr.peaks:
+                            if peak.inList(event_peaks):
+                                e_list += peak
+                    except AttributeError:
+                        pass
+                else:
+                    pass
+        try:
+            e_list.sort()
+        except AttributeError:
+            # empty list
+            pass
+        events_day.append(e_list)
+        analysis.saveData(date, event_list=e_list, step=1)
+    return events_day
 
 
-def show_2():
-    """
-    ganzer tag, ein observatory
-    plotten
-    lightcurve plotten
+def run2ndSearch(*date, mask_freq=True, no_bg=True, bin_f=False, bin_t=True, flatten=True, bin_t_w=None, flatten_w=None,
+                 r_w=30):
+    date = const.getDateFromArgs(*date)
+    events_day = analysis.loadData(date, step=1)
+    e_list = events.EventList([])
+    limit = 0.8
 
-    background abziehen
-    plotten
-    """
-    year = year_1
-    month = month_1
-    day = day_1
-    # download.downloadFullDay(year, month, day, [observatories.observatory_list[0]])
-    data_day = analysis.createDay(year, month, day, observatories.observatory_dict[
-        observatories.observatory_list[0]], spec_range)
-    data_day = sum(data_day)
-    data_day.plot()
-    data_day.createSummedLightCurve(spec_range)
-    analysis.plot_data_time(data_day.spectrum_data.time_axis, data_day.summedLightCurve,
-                                     data_day.spectrum_data.start.timestamp())
-    data_day.subtract_background()
-    data_day.plot()
+    for event in events_day:
+        obs = stations.StationSet(event.stations)
+        set_obs = obs.getSet()
+        for i in set_obs:
+            try:
+                dp1_peak = data.createFromTime(event.time_start, station=i[0], extent=False)
+                dp2_peak = data.createFromTime(event.time_start, station=i[1], extent=False)
+                dp1_peak.createSummedCurve()
+                dp2_peak.createSummedCurve()
+                dp1_peak.flattenSummedCurve()
+                dp2_peak.flattenSummedCurve()
+                event_peaks = analysis.peaksInData(dp1_peak, dp2_peak)
+                if not event.inList(event_peaks):
+                    pass
+                else:
+                    dp1, dp2, cor = analysis.calcPoint(event.time_start, obs1=i[0], obs2=i[1], mask_frq=mask_freq,
+                                                       r_window=r_w,
+                                                       flatten=flatten, bin_time=bin_t, bin_freq=bin_f, no_bg=no_bg,
+                                                       flatten_window=bin_t_w, bin_time_width=flatten_w, limit=limit)
+                    for peak in cor.peaks:
+                        if peak.inList(event_peaks):
+                            e_list += peak
+                        else:
+                            pass
+            except FileNotFoundError:
+                warnings.warn(message="Some file not found", category=UserWarning)
 
-
-def show_3():
-    """
-    single file :
-    punkt erstellen, lightcurve berechnen und plotten
-
-    achtung:
-    interne struktur erwartet die file im korrekten ordner
-    <script>/eCallistoData/<year>/<month>/<day>/
-
-    """
-    file = 'AUSTRIA-UNIGRAZ_20201023_113001_01.fit.gz'
-    dp = data.DataPoint(file)
-    dp.createSummedLightCurve(spec_range)
-    analysis.plot_data_time(dp.spectrum_data.time_axis, dp.summedLightCurve,
-                                     dp.spectrum_data.start.timestamp())
-
-
-def show_4():
-    year = year_1
-    month = month_1
-    day = day_1
-
-    data_day = analysis.createDay(year, month, day, observatories.observatory_dict[
-        observatories.observatory_list[3]], spec_range)
-    data_day = sum(data_day)
-    data_day.plot()
-
-
-def show_5():
-    year = year_2
-    month = month_2
-    day = day_2
-
-    obs_list = observatories.observatory_list
-    download.downloadFullDay(year, month, day, observatories.observatory_list)
-    obs_0 = observatories.observatory_dict[obs_list[0]]
-    obs_1 = observatories.observatory_dict[obs_list[1]]
-    obs_2 = observatories.observatory_dict[obs_list[2]]
-    obs_3 = observatories.observatory_dict[obs_list[3]]
-    obs_4 = observatories.observatory_dict[obs_list[4]]
-    obs_5 = observatories.observatory_dict[obs_list[5]]
-    obs_6 = observatories.observatory_dict[obs_list[6]]
-
-    # download.downloadFullDay(year, month, day, obs_list)
-    # corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
-    #                                                              _plot=True, _binned=False)
-    # analysis.getPeaksFromCorrelation(corr0, time0, obs0)
-    #
-    # corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
-    #                                                              _plot=True, _no_background=True, _binned=False)
-    # analysis.getPeaksFromCorrelation(corr0, time0, obs0)
-    # corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
-    #                                                              _plot=True, _binned=True)
-    # analysis.getPeaksFromCorrelation(corr0, time0, obs0)
-    #
-    # corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
-    #                                                              _plot=True, _no_background=True, _binned=True)
-    # analysis.getPeaksFromCorrelation(corr0, time0, obs0)
-    #
-    # -------------------------------------------------------------------------------------------------
-    corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_3, obs_6, spec_range,
-                                                                  _plot=True)
-    analysis.getPeaksFromCorrelation(corr0, time0, obs0)
-
-    corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_3, obs_6, spec_range,
-                                                                  _plot=True, _no_background=True)
-    analysis.getPeaksFromCorrelation(corr0, time0, obs0)
-    corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_3, obs_6, spec_range,
-                                                                  _plot=True)
-    analysis.getPeaksFromCorrelation(corr0, time0, obs0)
-
-    corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_3, obs_6, spec_range,
-                                                                  _plot=True, _no_background=True)
-    analysis.getPeaksFromCorrelation(corr0, time0, obs0)
-    """
-    03:06-03:06		Australia-ASSA
-    04:57-04:58		Australia-ASSA
-    06:18-06:18		Australia-ASSA
-    09:49-09:49		GLASGOW, HUMAIN, SWISS-HEITERSWIL
-    10:39-10:40		GLASGOW, HUMAIN, SWISS-HEITERSWIL, SWISS-Landschlacht
-    10:50-10:52		GLASGOW
-    12:29-12:29	*	AUSTRIA-UNIGRAZ, BIR, (EGYPT-Alexandria), GLASGOW, HUMAIN, MRO, SWISS-HEITERSWIL, SWISS-Landschlacht
-    13:00-13:04		BIR, DENMARK, EGYPT-Alexandria, GLASGOW, HUMAIN, SWISS-HEITERSWIL, SWISS-Landschlacht, (SWISS-MUHEN)
-    13:29-13:31		BIR, DENMARK, EGYPT-Alexandria, GLASGOW, HUMAIN, SWISS-HEITERSWIL, SWISS-Landschlacht
-    13:56-13:56		BIR, HUMAIN
-    14:04-14:04	*	AUSTRIA-UNIGRAZ, BIR, DENMARK, EGYPT-Alexandria, GLASGOW, HUMAIN, INPE, MEXART, MRO, SWISS-HEITERSWIL, SWISS-IRSOL, SWISS-Landschlacht,  SWISS-MUHEN
-    14:34-14:34		BIR, HUMAIN, (SWISS-HEITERSWIL)
-    18:34-18:35		ALASKA-COHOE
-    18:46-18:47		ALASKA-COHOE, BIR, MEXART
-    """
-
-
-def show_6():
-    year = year_2
-    month = month_2
-    day = day_2
-    # download.downloadFullDay(year, month, day, [observatories.observatory_list[0]])
-    data_day = analysis.createDay(year, month, day, observatories.observatory_dict[
-        observatories.observatory_list[3]], spec_range)
-    data_day = sum(data_day)
-    data_day.plot()
-    # data_day.createSummedLightCurve(spec_range, binned=False)
-    # analysis.plot_data_time(data_day.spectrum_data.time_axis, data_day.summedLightCurve,
-    #                                  data_day.spectrum_data.start.timestamp())
-
-    data_day.subtract_background()
-
-    data_day.createSummedLightCurve(spec_range, binned=False)
-    analysis.plot_data_time(data_day.spectrum_data.time_axis, data_day.summedLightCurve,
-                                     data_day.spectrum_data.start.timestamp())
-    data_day.plot()
-
-
-def show_6_2():
-    year = year_2
-    month = month_2
-    day = day_2
-    # download.downloadFullDay(year, month, day, [observatories.observatory_list[0]])
-    data_day = analysis.createDay(year, month, day, observatories.observatory_dict[
-        observatories.observatory_list[0]], spec_range)
-    data_day = sum(data_day)
-    data_day.plot()
-    data_day.createSummedLightCurve(spec_range, binned=False)
-    analysis.plot_data_time(data_day.spectrum_data.time_axis, data_day.summedLightCurve,
-                                     data_day.spectrum_data.start.timestamp())
-    data_day.subtract_background()
-    data_day.plot()
-
-
-def test1():
-    year = year_2
-    month = month_2
-    day = day_2
-    data_day = analysis.createDay(year, month, day, observatories.observatory_dict[
-        observatories.observatory_list[6]], spec_range)
-    data_day = sum(data_day)
-    data_day.createSummedLightCurve(spec_range, binned=False)
-    analysis.plot_data_time(data_day.spectrum_data.time_axis, data_day.summedLightCurve,
-                                     data_day.spectrum_data.start.timestamp())
-    analysis.getPeaksFromCorrelation(data_day.summedLightCurve, data_day.spectrum_data.start.timestamp(),
-                                              [observatories.observatory_dict[
-                                                   observatories.stat_uni_graz],
-                                               observatories.observatory_dict[
-                                                   observatories.stat_uni_graz]], _limit=14000)
-
-
-def show0612_1():
-    year = year_2
-    month = month_2
-    day = day_2
-
-    obs_list = observatories.observatory_list
-    download.downloadFullDay(year, month, day, observatories.observatory_list)
-    obs_0 = observatories.observatory_dict[obs_list[0]]
-    obs_1 = observatories.observatory_dict[obs_list[1]]
-    obs_2 = observatories.observatory_dict[obs_list[2]]
-    obs_3 = observatories.observatory_dict[obs_list[3]]
-    obs_4 = observatories.observatory_dict[obs_list[4]]
-    obs_5 = observatories.observatory_dict[obs_list[5]]
-    obs_6 = observatories.observatory_dict[obs_list[6]]
-
-    # download.downloadFullDay(year, month, day, obs_list)
-    # corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
-    #                                                              _plot=True, _binned=False)
-    # analysis.getPeaksFromCorrelation(corr0, time0, obs0)
-    #
-    # corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
-    #                                                              _plot=True, _no_background=True, _binned=False)
-    # analysis.getPeaksFromCorrelation(corr0, time0, obs0)
-    # corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
-    #                                                              _plot=True, _binned=True)
-    # analysis.getPeaksFromCorrelation(corr0, time0, obs0)
-    #
-    # corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_0, obs_1, spec_range,
-    #                                                              _plot=True, _no_background=True, _binned=True)
-    # analysis.getPeaksFromCorrelation(corr0, time0, obs0)
-    #
-    # -------------------------------------------------------------------------------------------------
-    corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_3, obs_6, spec_range,
-                                                                  _plot=True)
-    analysis.getPeaksFromCorrelation(corr0, time0, obs0)
-
-    corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_3, obs_6, spec_range,
-                                                                  _plot=True, _bin_time=True)
-    analysis.getPeaksFromCorrelation(corr0, time0, obs0, _binned_time=True)
-
-    corr0, time0, obs0 = analysis.correlateLightCurveDay(year, month, day, obs_3, obs_6, spec_range,
-                                                                  _plot=True, _bin_time=True, _bin_freq=True)
-    analysis.getPeaksFromCorrelation(corr0, time0, obs0, _binned_time=True)
-
-
-def testrun1701():
-    year = year_2
-    month = month_2
-    day = day_2
-    obs_list = observatories.observatory_list
-    download.downloadFullDay(year, month, day, observatories.observatory_list)
-    obs_3 = observatories.observatory_dict[obs_list[3]]
-    obs_6 = observatories.observatory_dict[obs_list[6]]
-
-    for i in range(20, 360, 20):
-        c0, t0, o0 = analysis.correlateLightCurveDay(year, month, day, obs_3, obs_6, spec_range, _plot=False,
-                                                              _no_background=False, _bin_freq=False, _bin_time=False,
-                                                              _rolling_window=i,
-                                                              _bin_time_width=1,
-                                                              _flatten_light_curve=False,
-                                                              _flatten_light_curve_window=100)
-        analysis.getPeaksFromCorrelation(c0, t0, o0)
-
-
-def testrun1701_2():
-    year = year_2
-    month = month_2
-    day = day_2
-    obs_list = observatories.observatory_list
-    download.downloadFullDay(year, month, day, observatories.observatory_list)
-    obs_3 = observatories.observatory_dict[obs_list[3]]
-    obs_6 = observatories.observatory_dict[obs_list[6]]
-
-    for i in range(100, 260, 20):
-        c0, t0, o0 = analysis.correlateLightCurveDay(year, month, day, obs_3, obs_6, spec_range, _plot=False,
-                                                              _no_background=False, _bin_freq=True, _bin_time=False,
-                                                              _rolling_window=i,
-                                                              _bin_time_width=1,
-                                                              _flatten_light_curve=True,
-                                                              _flatten_light_curve_window=200)
-        analysis.getPeaksFromCorrelation(c0, t0, o0)
-
-
-def test2401():
-    import matplotlib.pyplot as plt
-    import numpy as np
-    year = year_2
-    month = month_2
-    day = day_2
-    obs_list = observatories.observatory_list
-    obs = [observatories.observatory_dict[obs_list[i]] for i in range(3)]
-    day_o = [sum(analysis.createDay(year, month, day, i, spec_range)) for i in obs]
-
-    for i in day_o:
-        print(i)
-        i.plot()
-        i.createSummedLightCurve(spec_range)
-        i.flattenSummedLightCurve()
-        print(np.nanstd(i.summedLightCurve))
-
-        plt.plot(i.summedLightCurve)
-        plt.show()
-    print('done')
-    for i in day_o:
-        print(i)
-        i.binDataFreq()
-        i.createSummedLightCurve(spec_range)
-        i.flattenSummedLightCurve()
-        print(np.nanstd(i.summedLightCurve))
-
-        plt.plot(i.summedLightCurve)
-        plt.show()
+    analysis.saveData(date, event_list=e_list, step=2)
+    return e_list
 
 
 if __name__ == '__main__':
-    test2401()
+    input_arg = sys.argv
+    args = [2022, 1, 1, 1]
+    if input_arg and len(input_arg) > 2:
+        for i, j in enumerate(input_arg[1:]):
+            args[i] = int(j)
+    run1stSearch(*args[:-1], days=args[-1], mask_frq=True)
+    for i in range(args[-2], args[-2] + args[-1]):
+        run2ndSearch(args[:-2], i)
 
+
+# TODO 20.01. bug 9:18
+# 16.01. 9:09 bug (flatten)  - 20.01. 9:01
+# TODO CTM's -> destroy everything
+
+# 31.01 18:11 why?
 """
+if __name__ == '__main__':
+    # bacBurstFailed()
+
+    #nobg = False
+    #bin_f = False
+    #bin_t = False
+    #flatten = False
+    #bin_t_w = 1
+    #flatten_w = 1
+    ## nobg = True
+    #for r_w in range(20, 260, 20):
+    #    testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
+    #
+    #r_w = 160
+    #flatten = True
+    #for flatten_w in range(40, 400, 60):
+    #    testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
+    #
+    #r_w = 160
+    #flatten = False
+    #bin_t = True
+    #for bin_t_w in range(2, 16, 2):
+    #    testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
+    #
+    #r_w = 180
+    #flatten = True
+    #flatten_w = 220
+    #bin_f = True
+    #for nobg in range(2):
+    #    testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
+
+    flatten = True
+    flatten_w = 220
+    bin_f = False
+    nobg = True
+    bin_t = False
+    bin_t_w = 4
+    for r_w in range(180, 260, 10):
+        testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
+
+
 
 
    andere ecallisto auswertungen -> type 3
@@ -381,4 +177,63 @@ if __name__ == '__main__':
    3/11 09:31-09:32  14:06-14:08	        | gewitter
    
    
+"""
+
+
+# TODO:
+"""
+
+comparison -> [ liste["Events-verpasst"], liste["Events-falsch"]]
+
+datapoint (obs1) 
+datapoint (obs2)
+datapoint (....)
+
+for each test:
+    for each setOfObservatoryCombination
+        comparisons (obs1-obs2)
+        ... 
+        -> merge result listen  # TODO
+    print test results 
+
+"""
+
+# TODO:
+"""
+day, obs1 obs2 -> EventList
+day, obs1 obs3 -> EventList
+day, obs2 obs3 -> EventList
+                      |
+                    merge
+                  compare to reference 
+"""
+
+"""
+type ii list 
+20200529	07:23
+20201016	12:59 (greenland + SWISS-Landschlacht ) 
+20201020	13:31 (greenland)
+
+"""
+"""
+type iv
+20110924 12:00 - 14:00
+20201121	11:30-    multiple type III 
+20201125	23:26     australia-assa
+20201129	12:56     unigraz - looks like type 2
+20201130	10:56-10:58	VI	BIR, SWISS-Landschlacht    weak, multiple type iii ?
+20201229	20:57      roswell - mexart
+20201230	02:35      australia india uidaipur, indonesia
+20201230	09:12      austria unigraz 
+"""
+"""
+type V < 45 MHz -> not usually measurable with chosen observatories - rare
+
+
+"""
+"""
+type i
+20201201	04:53-05:53	I	Australia-ASSA   nope
+
+
 """

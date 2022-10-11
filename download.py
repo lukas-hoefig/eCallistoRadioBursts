@@ -1,108 +1,133 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from datetime import datetime as dt
+import datetime
 import radiospectra.sources.callisto as cal
 import os
 import copy
 
-from typing import List
+from typing import List, Union, Tuple
 
 import const
+import stations
 
-path_script = const.path_script
-path_data = const.path_data
-date_format = "%Y %m %d %H %M %S"
 file_log = ".datalog"
 
 
-def downloadFullDay(_year: int, _month: int, _day: int, _observatories: List[str]):
+def downloadFullDay(*date: Union[datetime.datetime, int],
+                    station: Union[str, stations.Station, List[str], List[stations.Station]]):
     """
-    downloads all available files of a day for all instruments defined in eCallistoData.py
+    downloads all available files of a day
     files will be located in
     <script>/eCallistoData/<year>/<month>/<day>/
 
-    :param _observatories: list[str] name-codes of observatories
-    :param _year:
-    :param _month:
-    :param _day:
+    :param date: datetime
+    :param station: name-codes|Stations
     """
-    _observatories = copy.copy(_observatories)
-    if type(_observatories) == str:
-        _observatories = [_observatories]
+    date_ = const.getDateFromArgs(*date)
+    station = copy.deepcopy(station)
+    if not isinstance(station, list):
+        station = [station]
+    for i in range(len(station)):
+        if isinstance(station[i], stations.Station):
+            station[i] = station[i].name
 
-    download_path = const.pathDataDay(_year, _month, _day)
-    hour_start = minute_start = second_start = "00"
-    hour_end = "23"
-    minute_end = second_end = "59"
-    time_start = dt.strptime(str(_year) + " " + str(_month) + " " + str(_day) + " "
-                             + hour_start + " " + minute_start + " " + second_start, date_format)
-    time_end = dt.strptime(str(_year) + " " + str(_month) + " " + str(_day) + " "
-                           + hour_end + " " + minute_end + " " + second_end, date_format)
+    year = date_.year
+    month = date_.month
+    day = date_.day
+    download_path = const.pathDataDay(date_)
+    time_start = datetime.datetime(year, month, day)
+    time_end = datetime.datetime(year, month, day, 23, 59, 59)
 
-    data_available, observatories_old = dataAvailable(_year, _month, _day)
+    data_available, stations_old = dataAvailable(date_)
     if data_available:
-        for observatory in observatories_old:
+        for i in stations_old:
             try:
-                _observatories.remove(observatory)
+                station.remove(i)
             except ValueError:
-                pass
+                try:
+                    station.remove(i.rstrip('-'))
+                except ValueError:
+                    pass
     if not os.path.exists(download_path):
         os.makedirs(download_path)
 
-    url_list = cal.query(time_start, time_end, _observatories)
-    cal.download(url_list, download_path)
-    if data_available:
-        createLog(_year, _month, _day, _observatories, _overwrite=False)
-    else:
-        createLog(_year, _month, _day, _observatories)
+    if station:
+        url_list = cal.query(time_start, time_end, station)
+        cal.download(url_list, download_path)
+        if data_available:
+            createLog(date_, station=station, _overwrite=False)
+        else:
+            createLog(date_, station=station)
 
 
-def createLog(_year: int, _month: int, _day: int, _observatories: List[str], _overwrite=True):
+def createLog(*date: datetime.datetime, station: List[str], _overwrite=True):
     """
     writes/appends a log file with the names of observatories for which data is available for a specified day
 
-    TODO: don't create file if day == today
-
-    TODO: check if files were actually downloaded
-
-    :param _year:
-    :param _month:
-    :param _day:
-    :param _observatories: list[str] name-codes of observatories
+    :param date: datetime
+    :param station: list[str] name-codes of observatories
     :param _overwrite: True:new log file, False:append log file
     """
-    if not len(_observatories):
+    if not station:
+        return
+    date_ = const.getDateFromArgs(*date)
+    today = datetime.datetime.today()
+    if date_.year == today.hour and date_.month == today.month and date_.day == today.day:
         return
 
-    path_log = const.pathDataDay(_year, _month, _day)
+    path_log = const.pathDataDay(date_)
     if _overwrite:
         datalog = open(path_log + file_log, 'w')
     else:
         datalog = open(path_log + file_log, "a")
-    for observatory in _observatories:
-        datalog.write(observatory + " ")
+    files = os.listdir(path_log)
+    for station in station:
+        if any(file.startswith(station) for file in files):
+            datalog.write(station + " ")
+        else:
+            datalog.write(station + "- ")
     datalog.close()
 
 
-def dataAvailable(_year: int, _month: int, _day: int):
+def dataAvailable(*date) -> Tuple[bool, Union[None, List[str]]]:
     """
-    checks whether data is available for a certain day in the local folder,
-    and returns the observatory names for which data was downloaded
+    don't call this
 
-    :param _year:
-    :param _month:
-    :param _day:
+    call stationsAvailable() instead
+
+    :param date: datetime, integer: year, month, day
     :return: bool, list[str] observatories for which data is available
     """
-    path_log = const.pathDataDay(_year, _month, _day)
+    date_ = const.getDateFromArgs(*date)
+
+    path_log = const.pathDataDay(date_)
     if not os.path.exists(path_log):
         return False, None
     try:
         datalog = open(path_log + file_log, "r")
-        observatories = datalog.read().split(" ")
+        station = datalog.read().split(" ")
         datalog.close()
-        return True, observatories
+        station.pop(-1)
+        return True, station
 
     except FileNotFoundError:
         return False, None
+
+
+def stationsAvailable(*date) -> Tuple[bool, List[str]]:
+    """
+    checks whether data is available for a certain day in the local folder,
+    and returns the observatory names for which data was downloaded
+
+    :param date: datetime, integer: year, month, day
+    :return: bool, list[str] observatories for which data is available
+    """
+    date_ = const.getDateFromArgs(*date)
+    data_available, station = dataAvailable(date_)
+    stations_available = []
+    for i in station:
+        if not i.endswith('-'):
+            stations_available.append(i)
+
+    return data_available, stations_available

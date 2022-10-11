@@ -1,300 +1,416 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import pandas as pd
+from datetime import datetime, timedelta
+from scipy.signal import find_peaks
+import matplotlib.pylab as plt
+import matplotlib.dates as mdates
 import numpy as np
-import matplotlib.pyplot as plt
-import os
+import pandas as pd
 import copy
-from datetime import datetime
+import os
+import pickle
+from typing import Union
 
-from typing import List
-
-import data
-import observatories
 import const
+import data
+import correlation
+import events
+import stations
 
-LIMIT = 0.70
-DATA_POINTS_PER_SECOND = const.DATA_POINTS_PER_SECOND
-BIN_FACTOR = const.BIN_FACTOR
+plot_size_x = 19
+plot_size_y = 12
+mask_frq_limit = 1.5
+
+# TODO make plot() its own function - code duplication
 
 
-def correlateLightCurves(_data_point1: data.DataPoint, _data_point2: data.DataPoint,
-                         _no_background: bool, _bin_freq: bool, _bin_time: bool, _flatten: bool, _bin_time_width: int,
-                         _flatten_window: int, _r_window, _plot=True):
-    """
-    calculates rolling coefficient of two data samples
-    misses first terms (r_window) due to calculation method
-
-    :param _flatten_window:
-    :param _bin_time_width:
-    :param _flatten:
-    :param _bin_time:
-    :param _bin_freq:
-    :param _no_background:
-    :param _data_point1:
-    :param _data_point2:
-    :param _r_window: size of rolling window ~(160-200)
-    :param _plot: bool, if result should be plotted
-    :return: list[float] rolling coefficients
-    """
-    if _bin_time:
-        data_per_second = DATA_POINTS_PER_SECOND / _bin_time_width
+def maskBadFrequencies(datapoint: Union[data.DataPoint, np.ndarray], limit=mask_frq_limit):
+    if isinstance(datapoint, data.DataPoint):
+        dpt = copy.deepcopy(datapoint)
+        dpt.subtract_background()
+        data_ = dpt.spectrum_data.data
+    elif isinstance(datapoint, np.ndarray):
+        data_ = datapoint
     else:
-        data_per_second = DATA_POINTS_PER_SECOND
+        raise ValueError
+    if isinstance(data_, np.ma.masked_array):
+        data_ = data_.data
 
-    time_axis = copy.copy(_data_point1.spectrum_data.time_axis)
-    frequency_low = max(_data_point1.spectrum_data.freq_axis[-1], _data_point2.spectrum_data.freq_axis[-1])
-    frequency_high = min(_data_point1.spectrum_data.freq_axis[0], _data_point2.spectrum_data.freq_axis[0])
-    frequency_range = [frequency_low, frequency_high]
-    if not _data_point1.summedLightCurve:
-        _data_point1.createSummedLightCurve(frequency_range)
-        if _flatten:
-            _data_point1.flattenSummedLightCurve(_flatten_window)
-    if not _data_point2.summedLightCurve:
-        _data_point2.createSummedLightCurve(frequency_range)
-        if _flatten:
-            _data_point2.flattenSummedLightCurve(_flatten_window)
+    summed = np.array([np.nansum(data_[f]) for f in range(len(data_))])
+    summed_lim = limit * np.nanstd(summed)
+    summed_mean = np.nanmean(summed)
 
-    time_start_1 = _data_point1.spectrum_data.start.timestamp()
-    time_start_2 = _data_point2.spectrum_data.start.timestamp()
+    mean_ = []
+    for i in data_:
+        mean_.append(np.nanstd(i))
+    mean = np.nanmedian(mean_)
 
-    time_start_delta = int((time_start_1 - time_start_2) * data_per_second)
-    if time_start_2 > time_start_1:
-        time_start = time_start_2
+    mask = np.array([(abs(j - summed_mean) > summed_lim) or (mean_[i] > mean * 10) for i, j in enumerate(summed)])
+    return mask
+
+
+def maskBadFrequenciesPlot(datapoint: data.DataPoint, limit=mask_frq_limit):
+    data_ = datapoint.spectrum_data.data
+    frq = datapoint.spectrum_data.freq_axis
+    summed = np.array([np.nansum(f) for f in data_])
+    summed_max = np.nanmax(summed)
+    summed_min = np.nanmin(summed)
+
+    mask = maskBadFrequencies(datapoint, limit=limit)
+    summed_masked = copy.copy(summed)
+    summed_masked[mask] = np.nanmean(summed)
+
+    fig, ax = plt.subplots(figsize=(plot_size_x, plot_size_y))
+    plt.imshow(datapoint.spectrum_data.data, extent=[summed_min, summed_max, frq[0], frq[-1]],
+               aspect='auto', origin='lower')
+    ax.set_ylim(frq[0], frq[-1])
+    ax.set_xlim([np.nanmin(summed), np.nanmax(summed)])
+
+    plt.xlabel("Intensity [arbitrary units]")
+    plt.ylabel("frequency [MHz]")
+
+    ax.plot(summed, frq, color='red', label="Dropped Frequency Regime")
+    ax.plot(summed_masked, frq, color='orange', label="Summed Intensity")
+
+    ax.legend(loc="lower left")
+    plt.show()
+
+    return mask
+
+
+def calcPoint(*date, obs1: stations.Station, obs2: stations.Station, data_point_1=None, data_point_2=None,
+              mask_frq=False, limit_frq=mask_frq_limit, extent=True, limit=correlation.CORRELATION_MIN,
+              flatten=None, bin_time=None, bin_freq=None, no_bg=None, r_window=None,
+              flatten_window=None, bin_time_width=None, method_bin_t=None, method_bin_f=None):
+    """
+    TODO -> corrupt data -> skip 
+    """
+    if flatten is None:
+        flatten = True
+    if flatten_window is None:
+        flatten_window = correlation.default_flatten_window
+    if bin_time is None:
+        bin_time = True
+    if bin_freq is None:
+        bin_freq = False
+    if no_bg is None:
+        no_bg = True
+    if r_window is None:
+        r_window = int(correlation.default_r_window/correlation.default_time_window)
+    if bin_time_width is None:
+        bin_time_width = correlation.default_time_window
+    if method_bin_t is None:
+        method_bin_t = 'median'
+    if method_bin_f is None:
+        method_bin_f = 'median'
+
+    if data_point_1 is None and data_point_2 is None:
+        date_ = const.getDateFromArgs(*date)
+        data_point_1 = data.createFromTime(date_, station=obs1, extent=extent)
+        data_point_2 = data.createFromTime(date_, station=obs2, extent=extent)
     else:
-        time_start = time_start_1
+        date_ = data_point_1.spectrum_data.start
 
-    if time_start_delta > 0:
-        curve1 = _data_point1.summedLightCurve[:-time_start_delta]
-        curve2 = _data_point2.summedLightCurve[time_start_delta:]
-        time_axis = time_axis[:-time_start_delta]
+    if mask_frq:
+        mask1 = maskBadFrequencies(data_point_1, limit=limit_frq)
+        mask2 = maskBadFrequencies(data_point_2, limit=limit_frq)
+        data_point_1.spectrum_data.data[mask1, :] = np.nanmean(data_point_1.spectrum_data.data)
 
-    elif time_start_delta < 0:
-        curve1 = _data_point1.summedLightCurve[-time_start_delta:]
-        curve2 = _data_point2.summedLightCurve[:time_start_delta]
-        time_axis = time_axis[-time_start_delta:]
-
+        data_point_2.spectrum_data.data[mask2, :] = np.nanmean(data_point_2.spectrum_data.data)
     else:
-        curve1 = _data_point1.summedLightCurve
-        curve2 = _data_point2.summedLightCurve
+        pass
 
-    if len(curve1) > len(curve2):
-        time_axis = time_axis[:-abs(len(curve1) - len(curve2))]
-        curve1 = curve1[:-abs(len(curve1) - len(curve2))]
-    elif len(curve2) > len(curve1):
-        curve2 = curve2[:-abs(len(curve2) - len(curve1))]
+    dp1_cor = copy.deepcopy(data_point_1)
+    dp2_cor = copy.deepcopy(data_point_2)
 
-    correlation = pd.Series(curve1).rolling(_r_window).corr(pd.Series(curve2))
+    cor = correlation.Correlation(dp1_cor, dp2_cor, day=date_.day,
+                                  flatten=flatten, bin_time=bin_time, bin_freq=bin_freq, no_background=no_bg,
+                                  r_window=r_window, flatten_window=flatten_window, bin_time_width=bin_time_width,
+                                  method_bin_t=method_bin_t, method_bin_f=method_bin_f)
+    cor.calculatePeaks(limit=limit)
 
-    plot_data_time(time_axis, correlation, time_start, _data_point1.year, _data_point1.month, _data_point1.day,
-                   _data_point1.observatory.name, _data_point2.observatory.name, _no_background, _bin_freq,
-                   _bin_time, _flatten, _bin_time_width, _flatten_window, _r_window, _plot=_plot)
-
-    return correlation.replace([np.inf, -np.inf], np.nan).tolist(), time_start, [_data_point1.observatory,
-                                                                                 _data_point2.observatory]
-
-
-# -> data.py
-def createDay(_year: int, _month: int, _day: int, _observatory: observatories.Observatory,
-              _spectral_range: List[int]):
-    """
-    Creates a list with DataPoints for a specific day for a Observatory with a specific spectral range
-
-    TODO: function the spectral_id = next() line
-
-    :param _year:
-    :param _month:
-    :param _day:
-    :param _observatory:
-    :param _spectral_range: [spectral, range]
-    :return: List[DataPoints]
-    """
-    path = const.pathDataDay(_year, _month, _day)
-    files_day = sorted(os.listdir(path))
-    spectral_id = next(key for key, s_range in _observatory.spectral_range.items() if s_range == _spectral_range)
-    files_observatory = []
-    data_day = []
-
-    for file in files_day:
-        if file.startswith(_observatory.name) and file.endswith(spectral_id + data.DataPoint.file_ending):
-            files_observatory.append(file)
-
-    for file in files_observatory:
-        data_day.append(data.DataPoint(file))  # try except |error -> TRIEST_20210906_234530_57.fit   TODO
-    return data_day
+    data_point_1.createSummedCurve()
+    data_point_2.createSummedCurve()
+    data_point_1.flattenSummedCurve(rolling_window=correlation.default_flatten_window)
+    data_point_2.flattenSummedCurve(rolling_window=correlation.default_flatten_window)
+    return data_point_1, data_point_2, cor
 
 
-# -> data
-def fitTimeFrameDataSample(_data_point1: List[data.DataPoint], _data_point2: List[data.DataPoint]):
-    """
-    shortens the list of DataPoints of different timeframe to a single biggest possible timeframe
+def plotDatapoint(datapoint: data.DataPoint):
+    t = np.arange(datapoint.spectrum_data.start.strftime("%Y-%m-%dT%H:%M:%S.%z"),
+                  datapoint.spectrum_data.end.strftime("%Y-%m-%dT%H:%M:%S.%z"), dtype='datetime64[s]').astype(datetime)
+    mt = mdates.date2num((t[0], t[-1]))
 
-    TODO: where data is cut, and why
+    fig, ax = plt.subplots(figsize=(plot_size_x, plot_size_y))
+    fig.suptitle(f"{datapoint.day}.{datapoint.month}.{datapoint.year} Radio Flux Data {datapoint.observatory.name}")
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Frequency [MHz]")
+    plt.imshow(datapoint.spectrum_data.data, extent=[mt[0], mt[1], 0, int(900 / plot_size_x * plot_size_y)],
+               aspect='auto', origin='lower')
+    cbar = plt.colorbar(location='right', anchor=(.15, 0.0))
+    cbar.set_label("Intensity")
+    ax.set_yticks([int(900 / plot_size_x * plot_size_y / 9) * i for i in range(0, 10)],
+                  np.around(datapoint.spectrum_data.freq_axis[::int(len(datapoint.spectrum_data.freq_axis) / 9)], 1))
+    ax.xaxis.set_major_locator(mdates.MinuteLocator(interval=1))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+    plt.xticks(rotation=45)
 
-    TODO: throw - no overlap
-
-    :param _data_point1: List[DataPoints]
-    :param _data_point2: List[DataPoints]
-    :return: DataPoint(timeframe), DataPoint(timeframe)
-    """
-    while _data_point1[0].hour + _data_point1[0].minute / 60 != _data_point2[0].hour + _data_point2[0].minute / 60:
-        if _data_point1[0].hour + _data_point1[0].minute / 60 < _data_point2[0].hour + _data_point2[0].minute / 60:
-            _data_point1.pop(0)
-        else:
-            _data_point2.pop(0)
-    while _data_point1[-1].hour + _data_point1[-1].minute / 60 != _data_point2[-1].hour + _data_point2[-1].minute / 60:
-        if _data_point1[-1].hour + _data_point1[-1].minute / 60 < _data_point2[-1].hour + _data_point2[-1].minute / 60:
-            _data_point2.pop(-1)
-        else:
-            _data_point1.pop(-1)
-
-    data_merged1 = sum(_data_point1)
-    data_merged2 = sum(_data_point2)
-    return data_merged1, data_merged2
+    plt.tight_layout()
+    plt.show()
 
 
-def correlateLightCurveDay(_year: int, _month: int, _day: int, _observatory1: observatories.Observatory,
-                           _observatory2: observatories.Observatory, _spectral_range: List[int],
-                           _no_background=False, _bin_freq=False, _bin_time=False,
-                           _rolling_window=const.ROLL_WINDOW,
-                           _bin_time_width=data.DATA_POINTS_PER_SECOND / data.BIN_FACTOR,
-                           _flatten_light_curve=False, _flatten_light_curve_window=data.CURVE_FLATTEN_WINDOW,
-                           _plot=False):
-    """
-    Calculates the correlation of the lightcurve for a whole day for two observatories in the same spectral range
-
-    TODO: throw if spectral range is not available
-
-    :param _rolling_window:
-    :param _flatten_light_curve_window:
-    :param _flatten_light_curve:
-    :param _bin_time_width:
-    :param _bin_time:
-    :param _bin_freq:
-    :param _no_background: removes background from data_points if set
-    :param _plot: whether a plot gets printed to screen
-    :param _year:
-    :param _month:
-    :param _day:
-    :param _observatory1:
-    :param _observatory2:
-    :param _spectral_range:
-    :return: List, correlation
-    """
-    data_obs_1 = createDay(_year, _month, _day, _observatory1, _spectral_range)
-    data_obs_2 = createDay(_year, _month, _day, _observatory2, _spectral_range)
-
-    data_sum_obs1, data_sum_obs2 = fitTimeFrameDataSample(data_obs_1, data_obs_2)
-
-    if _bin_freq:
-        data_sum_obs1.binDataFreq()
-        data_sum_obs2.binDataFreq()
-    if _bin_time:
-        data_sum_obs1.binDataTime(width=_bin_time_width)
-        data_sum_obs2.binDataTime(width=_bin_time_width)
-    if _no_background:
-        data_sum_obs1.subtract_background()
-        data_sum_obs2.subtract_background()
-
-    return correlateLightCurves(data_sum_obs1, data_sum_obs2, _no_background, _bin_freq, _bin_time,
-                                _flatten_light_curve, _bin_time_width, _flatten_light_curve_window, _rolling_window,
-                                _plot=_plot, )
-
-
-def getPeaksFromCorrelation(correlation: List[float], starting_time: float,
-                            observatories: List[observatories.Observatory], _limit=LIMIT, _binned_time=False):
-    """
-
-    :param _binned_time:
-    :param _limit: correlation level needed to count as burst
-    :param observatories:
-    :param correlation:
-    :param starting_time:
-    """
-    if _binned_time:
-        data_per_second = DATA_POINTS_PER_SECOND / BIN_FACTOR
+def plotEverything(dp1: data.DataPoint, dp2: data.DataPoint, cor: correlation.Correlation):
+    if cor.day == dp1.day:
+        year = dp1.year
+        month = dp1.month
+        day = cor.day
     else:
-        data_per_second = DATA_POINTS_PER_SECOND
+        date = datetime(dp1.year, dp1.month, dp1.day) + timedelta(days=1)
+        year = date.year
+        month = date.month
+        day = date.day
 
-    bursts = []
-    within_burst = False
-    if np.nanmax(correlation) < _limit:
-        print("No Bursts {}  {} \n".format(observatories[0].name, observatories[1].name))
-        return
-    for point in range(len(correlation)):
-        if correlation[point] > _limit and not within_burst:
-            bursts.append([point, correlation[point]])
-            within_burst = True
-        if correlation[point] > _limit and within_burst and correlation[point] > bursts[-1][1]:
-            bursts[-1][1] = correlation[point]
-        if within_burst and correlation[point] < _limit:
-            within_burst = False
-
-    if bursts[0]:
-        for i in range(len(bursts)):
-            bursts[i][0] = datetime.fromtimestamp(bursts[i][0] / data_per_second + starting_time).strftime(
-                "%H:%M:%S")
-
-        print("Burst(s) detected {}  {}  \n".format(observatories[0].name, observatories[1].name), bursts)
-
-
-def plot_data_time(_time: List[float], _data: List[float], _time_start: float,
-                   _year: int, _month: int, _day: int, _obs1: str, _obs2: str, _nobg: bool, _bin_freq: bool,
-                   _bin_time: bool, _flatten: bool, _bin_time_width: int, _flatten_window: int, _rolling_window: int,
-                   _plot=True):
-    """
-
-    :param _time:
-    :param _data:
-    :param _time_start:
-    :param _year:
-    :param _month:
-    :param _day:
-    :param _obs1:
-    :param _obs2:
-    :param _nobg:
-    :param _bin_freq:
-    :param _bin_time:
-    :param _flatten:
-    :param _flatten_window:
-    :param _bin_time_width:
-    :param _rolling_window:
-    :param _plot:
-    :return:
-    """
-    if _bin_time:
-        data_per_second = DATA_POINTS_PER_SECOND / _bin_time_width
+    if len(cor.data_curve) < len(dp1.spectrum_data.time_axis[::4]):
+        _time = dp1.spectrum_data.time_axis[::4][:len(cor.data_curve)]
     else:
-        data_per_second = DATA_POINTS_PER_SECOND
+        _time = dp1.spectrum_data.time_axis[::4]
+    _time2 = dp1.spectrum_data.time_axis
+    _time3 = dp2.spectrum_data.time_axis
+    _time_start = cor.time_start
+    _data = cor.data_curve
+    unscientific_shift = 0   # 45/4
+
+    t = np.arange(dp1.spectrum_data.start.strftime("%Y-%m-%dT%H:%M:%S.%z"),
+                  dp1.spectrum_data.end.strftime("%Y-%m-%dT%H:%M:%S.%z"), dtype='datetime64[s]').astype(datetime)
+    mt = mdates.date2num((t[0], t[-1]))
+
+    fig, ax = plt.subplots(figsize=(plot_size_x, plot_size_y))
+    fig.suptitle(f"{day}.{month}.{year} Radio Flux Data "
+                 f"{dp1.observatory.name} and overlap with {cor.data_point_2.observatory.name}")
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Frequency [MHz]")
+    plt.imshow(dp1.spectrum_data.data, extent=[mt[0], mt[1], 0, int(900/plot_size_x * plot_size_y)],
+               aspect='auto', origin='lower')
+    cbar = plt.colorbar(location='right', anchor=(.15, 0.0))
+    cbar.set_label("Intensity")
+    ax.set_yticks([int(900/plot_size_x * plot_size_y/9) * i for i in range(0, 10)],
+                  np.around(dp1.spectrum_data.freq_axis[::int(len(dp1.spectrum_data.freq_axis)/9)], 1))
+    ax.xaxis.set_major_locator(mdates.MinuteLocator(interval=1))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+    plt.xticks(rotation=60)
+
+    ax2 = plt.twinx(ax)
+    plot_limit = ax2.axhline(0.8, color="yellow", linestyle='--', label='Correlation Limit')
     time_axis_plot = []
-    for i in range(len(_time)):
-        time_axis_plot.append(
-            datetime.fromtimestamp(_time_start + i / data_per_second).strftime("%D %H:%M:%S.%f")[:-3])
+    for i in _time:
+        time_axis_plot.append(datetime.fromtimestamp(_time_start + i).strftime("%Y %m %d %H:%M:%S"))
     time_axis_plot = pd.to_datetime(time_axis_plot)
     dataframe = pd.DataFrame()
     dataframe['data'] = _data
     dataframe = dataframe.set_index(time_axis_plot)
+    plot_cor = ax2.plot(dataframe, color="red", linewidth=2,
+                        label=f"Correlation: {cor.data_point_1.observatory.name} | {cor.data_point_2.observatory.name}")
+    ax2.set_ylabel("Correlation")
+    ax2.set_ylim(-0.4, 1)
 
-    # method this
-    file_name = "{}_{}_{}_{}_{}_{}{}{}{}{}.png".format(_year, _month, _day, _obs1, _obs2, _rolling_window,
-                                                       ["", "_nobg"][_nobg], ["", "_binfreq"][_bin_freq],
-                                                       ["", "_bintime_{}".format(_bin_time_width)][_bin_time],
-                                                       ["", "_flatten_{}".format(_flatten_window)][_flatten])
+    ax3 = plt.twinx(ax)
+    # ax3.spines["right"].set_position(("axes", 1.2))
+    # ax3.yaxis.get_offset_text().set_position((1.2,1))
+    # ax3.set_ylabel("data")
+    ax3.set_axis_off()
+    time_axis_plot2 = []
+    for i in _time2:
+        time_axis_plot2.append(datetime.fromtimestamp(_time_start + i).strftime("%Y %m %d %H:%M:%S"))
+    time_axis_plot2 = pd.to_datetime(time_axis_plot2)
+    dataframe2 = pd.DataFrame()
+    dataframe2['data'] = dp1.summed_curve
+    dataframe2 = dataframe2.set_index(time_axis_plot2)
+    plot_dat = ax3.plot(dataframe2, color="blue", linewidth=1, label=f"Summed Intensity Curve {dp1.observatory.name}")
 
-    plt.figure(figsize=(16, 9))
-    fig, ax = plt.subplots()
-    fig.subplots_adjust(bottom=0.3)
-    plt.xticks(rotation=90)
-    plt.plot(dataframe)
+    ax4 = plt.twinx(ax)
+    ax4.set_axis_off()
+    time_axis_plot3 = []
+    for i in _time3:
+        time_axis_plot3.append(datetime.fromtimestamp(_time_start + i).strftime("%Y %m %d %H:%M:%S"))
+    time_axis_plot3 = pd.to_datetime(time_axis_plot3)
+    dataframe3 = pd.DataFrame()
+    dataframe3['data'] = dp2.summed_curve
+    dataframe3 = dataframe3.set_index(time_axis_plot3)
+    plot_dat2 = ax4.plot(dataframe3, color="cyan", linewidth=1, label=f"Summed Intensity Curve {dp2.observatory.name}")
 
-    if _plot:
+    plots = plot_cor + plot_dat + plot_dat2
+    plots.append(plot_limit)
+
+    _peaks_start = []
+    _peaks_end = []
+    for j, i in enumerate(cor.peaks):
+        start = mdates.date2num(i.time_start-timedelta(seconds=unscientific_shift))
+        end = mdates.date2num(i.time_end-timedelta(seconds=unscientific_shift))
+        _peaks_start.append(start)
+        _peaks_end.append(end)
+
+        plot_b_start = plt.axvline(start, color="darkgrey", linestyle='--', label='Burst start')
+        plot_b_end = plt.axvline(end, color="black", linestyle='--', label='Burst end')
+
+        if not j:
+            plots.extend([plot_b_start, plot_b_end])
+
+    labs = [i.get_label() for i in plots]
+    plt.legend(plots, labs, loc="lower right")     # -> TODO position
+    plt.tight_layout()
+    plt.show()
+
+
+def peaksInData(dp1: data.DataPoint, dp2: data.DataPoint, plot=False, peak_limit=2):
+    """
+
+    """
+    x1 = np.array(dp1.summed_curve)
+    lim1 = peak_limit * np.nanstd(x1)
+    scipy_peaks1 = find_peaks(x1, height=lim1)[0]
+
+    x2 = np.array(dp2.summed_curve)
+    lim2 = peak_limit * np.nanstd(x2)
+    scipy_peaks2 = find_peaks(x2, height=lim2)[0]
+
+    _time_start = dp1.spectrum_data.start.timestamp()
+
+    new3 = []
+    peaks = []
+    if len(scipy_peaks1) and len(scipy_peaks2):
+        new = [scipy_peaks1[0]]
+        for kk in scipy_peaks1:
+            if all(np.around(kk - new, -2)):
+                new.append(kk)
+
+        new2 = [scipy_peaks2[0]]
+        for kk in scipy_peaks2:
+            if all(np.around(kk - new2, -2)):
+                new2.append(kk)
+        for kk in new:
+            if not all(np.around(kk - new2, -2)):
+                new3.append(kk)
+        for i in new3:
+            peak = datetime.fromtimestamp(_time_start + i / 4)
+            event = events.Event(peak, probability=correlation.CORRELATION_MIN)
+            peaks.append(event)
+    events_ = events.EventList(peaks, dp1.spectrum_data.start)
+
+    if plot:
+        _time1_ = dp1.spectrum_data.time_axis
+        _time2_ = dp2.spectrum_data.time_axis
+        fig, ax = plt.subplots(figsize=(plot_size_x, plot_size_y))
+        plt.xlabel("Time")
+        plt.ylabel("Summed Intensity")
+
+        time_axis_plot1 = []
+        for i in _time1_:
+            time_axis_plot1.append(datetime.fromtimestamp(_time_start + i).strftime("%Y %m %d %H:%M:%S"))
+        time_axis_plot1 = pd.to_datetime(time_axis_plot1)
+        dataframe1 = pd.DataFrame()
+        dataframe1['data'] = dp1.summed_curve
+        dataframe1 = dataframe1.set_index(time_axis_plot1)
+        plt.plot(dataframe1, color="red", linewidth=2, label=f"{dp1.observatory}")
+        for i in scipy_peaks1:
+            plt.plot(mdates.date2num(datetime.fromtimestamp(_time_start + i / 4)), x1[i], "x", color="red")
+
+        time_axis_plot2 = []
+        for i in _time2_:
+            time_axis_plot2.append(datetime.fromtimestamp(_time_start + i).strftime("%Y %m %d %H:%M:%S"))
+        time_axis_plot2 = pd.to_datetime(time_axis_plot2)
+        dataframe2 = pd.DataFrame()
+        dataframe2['data'] = dp2.summed_curve
+        dataframe2 = dataframe2.set_index(time_axis_plot2)
+        plt.plot(dataframe2, color="blue", linewidth=1, label=f"{dp2.observatory}")
+        for i in scipy_peaks2:
+            plt.plot(mdates.date2num(datetime.fromtimestamp(_time_start + i / 4)), x2[i], "x", color="blue")
+
+        for i in new3:
+            if not new3.index(i):
+                plt.axvline(mdates.date2num(datetime.fromtimestamp(_time_start + i / 4)), linestyle="--", color="grey",
+                            label="Possible Peak")
+            else:
+                plt.axvline(mdates.date2num(datetime.fromtimestamp(_time_start + i / 4)), linestyle="--", color="grey")
+
+        ax.xaxis.set_major_locator(mdates.MinuteLocator(interval=2))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+        plt.xlim([mdates.date2num(time_axis_plot1[0]), mdates.date2num(time_axis_plot1[-1])])
+        plt.xticks(rotation=45)
+        plt.legend(loc="upper left")
         plt.show()
-    else:
-        plt.savefig(const.path_plots + file_name)
-    plt.close()
+
+    return events_
 
 
-"""
-function -> per day, pick observatories, download data -> correlate for observatories for which there is data
-"""
+def getEvents(*args, mask_frq=None, r_window=None,
+              flatten=None, bin_time=None, bin_freq=None, no_bg=None,
+              flatten_window=None, bin_time_width=None, limit=None):
+    date = None
+    dp1 = None
+    dp2 = None
+    obs1 = None
+    obs2 = None
+    for i in args:
+        if isinstance(i, data.DataPoint) and dp1 is None:
+            dp1 = i
+            obs1 = i.observatory
+            continue
+        if isinstance(i, data.DataPoint) and dp1 is not None:
+            dp2 = i
+            obs2 = i.observatory
+            continue
+        if isinstance(i, datetime) and date is None:
+            date = i
+            continue
+        if isinstance(i, str) or isinstance(i, stations.Station):
+            obs1 = i
+            continue
+        if (isinstance(i, str) or isinstance(i, stations.Station)) and obs1 is not None:
+            obs2 = i
+            continue
+    if dp1 is not None and dp2 is not None:
+        date = dp1.spectrum_data.start
+
+    if date is None or obs2 is None:
+        raise ValueError("Needs either datetime and 2 stations   or   2 datapoints as args")
+
+    e_list = events.EventList([], date)
+    dp1, dp2, cor = calcPoint(date, obs1=obs1, obs2=obs2, data_point_1=dp1, data_point_2=dp2,
+                              mask_frq=mask_frq, r_window=r_window,
+                              flatten=flatten, bin_time=bin_time, bin_freq=bin_freq, no_bg=no_bg,
+                              flatten_window=flatten_window, bin_time_width=bin_time_width, limit=limit)
+
+    event_peaks = peaksInData(dp1, dp2)
+    for peak in cor.peaks:
+        if peak.inList(event_peaks):
+            e_list += peak
+    return e_list
+
+
+def filename(*date, step: int):
+    date_ = const.getDateFromArgs(*date)
+    return const.path_data + f"results/{date_.year}/{date_.month:02}/" + \
+                             f"{date_.year}_{date_.month:02}_{date_.day:02}_step{step}"
+
+
+def saveData(*date, step: int, event_list: events.EventList):
+    """
+    """
+    date_ = const.getDateFromArgs(*date)
+    file_name = filename(date_, step=step)
+    folder = file_name[:file_name.rfind("/")+1]
+    if not (os.path.exists(folder) and os.path.isdir(folder)):
+        os.makedirs(folder)
+    with open(filename(date_, step=step), "wb") as file:
+        pickle.dump(event_list, file)
+
+
+def loadData(*date, step: int):
+    """
+    """
+    date_ = const.getDateFromArgs(*date)
+    with open(filename(date_, step=step), "rb") as read_file:
+        loaded_data = pickle.load(read_file)
+
+    return loaded_data
