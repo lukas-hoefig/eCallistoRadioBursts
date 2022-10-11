@@ -10,6 +10,7 @@ import pandas as pd
 import copy
 import os
 import pickle
+from typing import Union
 
 import const
 import data
@@ -24,11 +25,15 @@ mask_frq_limit = 1.5
 # TODO make plot() its own function - code duplication
 
 
-def maskBadFrequencies(datapoint: data.DataPoint, limit=mask_frq_limit):
-    dpt = copy.deepcopy(datapoint)
-    dpt.subtract_background()
-
-    data_ = dpt.spectrum_data.data
+def maskBadFrequencies(datapoint: Union[data.DataPoint, np.ndarray], limit=mask_frq_limit):
+    if isinstance(datapoint, data.DataPoint):
+        dpt = copy.deepcopy(datapoint)
+        dpt.subtract_background()
+        data_ = dpt.spectrum_data.data
+    elif isinstance(datapoint, np.ndarray):
+        data_ = datapoint
+    else:
+        raise ValueError
     if isinstance(data_, np.ma.masked_array):
         data_ = data_.data
 
@@ -290,7 +295,7 @@ def peaksInData(dp1: data.DataPoint, dp2: data.DataPoint, plot=False, peak_limit
             peak = datetime.fromtimestamp(_time_start + i / 4)
             event = events.Event(peak, probability=correlation.CORRELATION_MIN)
             peaks.append(event)
-    events_ = events.EventList(peaks)
+    events_ = events.EventList(peaks, dp1.spectrum_data.start)
 
     if plot:
         _time1_ = dp1.spectrum_data.time_axis
@@ -370,7 +375,7 @@ def getEvents(*args, mask_frq=None, r_window=None,
     if date is None or obs2 is None:
         raise ValueError("Needs either datetime and 2 stations   or   2 datapoints as args")
 
-    e_list = events.EventList([])
+    e_list = events.EventList([], date)
     dp1, dp2, cor = calcPoint(date, obs1=obs1, obs2=obs2, data_point_1=dp1, data_point_2=dp2,
                               mask_frq=mask_frq, r_window=r_window,
                               flatten=flatten, bin_time=bin_time, bin_freq=bin_freq, no_bg=no_bg,
@@ -395,7 +400,8 @@ def saveData(*date, step: int, event_list: events.EventList):
     date_ = const.getDateFromArgs(*date)
     file_name = filename(date_, step=step)
     folder = file_name[:file_name.rfind("/")+1]
-    os.makedirs(folder)
+    if not (os.path.exists(folder) and os.path.isdir(folder)):
+        os.makedirs(folder)
     with open(filename(date_, step=step), "wb") as file:
         pickle.dump(event_list, file)
 
