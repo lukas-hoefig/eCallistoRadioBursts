@@ -45,7 +45,9 @@ def getDateFromArgs(*date):
     :param date: datetime, str, ints
     :return: datetime object
     """
-    if isinstance(date[0], datetime.datetime):
+    if isinstance(date, datetime.datetime):
+        date_ = date
+    elif isinstance(date[0], datetime.datetime):
         date_ = date[0]
     elif len(date) > 2:
         param = [2000, 1, 1, 0, 0, 0]

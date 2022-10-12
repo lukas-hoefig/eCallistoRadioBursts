@@ -35,7 +35,7 @@ class Time(datetime):
 
 
 def time(datetime_: datetime):
-    return Time(datetime_.year, datetime_.month, datetime_.day, 
+    return Time(datetime_.year, datetime_.month, datetime_.day,
                 datetime_.hour, datetime_.minute, datetime_.second)
 
 
@@ -81,7 +81,7 @@ class Event:
         return self.compare(other)
 
     def __add__(self, other):
-        return EventList([self, other])
+        return EventList([self, other], self.time_start)
 
     def __iadd__(self, other):
         return self.__add__(other)
@@ -116,7 +116,7 @@ class EventList:
             return self.__radd__(other)
 
         if isinstance(other, EventList):
-            temp = EventList([])
+            temp = EventList([], other.date)
             for i in other.events:
                 temp = self.__radd__(i)
             return temp

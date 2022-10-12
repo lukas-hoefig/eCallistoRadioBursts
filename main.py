@@ -26,13 +26,13 @@ def run1stSearch(*date, days=1, mask_frq=False, nobg=True, bin_f=False, bin_t=Fa
 
     events_day = []
     for i in range(days):
-        date = date_start + time_step * i
-        observatories = stations.getStations(date)
-        download.downloadFullDay(date, station=observatories)
+        date_ = date_start + time_step * i
+        observatories = stations.getStations(date_)
+        download.downloadFullDay(date_, station=observatories)
         sets = []
         for j in observatories:
-            sets.extend(data.listDataPointDay(date, station=j))
-        e_list = events.EventList([])
+            sets.extend(data.listDataPointDay(date_, station=j))
+        e_list = events.EventList([], date_)
         for set1 in range(len(sets)):
             for set2 in range(set1 + 1, len(sets)):
                 data1_raw = copy.deepcopy(sets[set1])
@@ -45,15 +45,13 @@ def run1stSearch(*date, days=1, mask_frq=False, nobg=True, bin_f=False, bin_t=Fa
                         mask2 = analysis.maskBadFrequencies(data2)
                         data1.spectrum_data.data[mask1] = np.nanmean(data1.spectrum_data.data)
                         data2.spectrum_data.data[mask2] = np.nanmean(data2.spectrum_data.data)
-                    corr = correlation.Correlation(data1, data2, date.day, no_background=nobg, bin_freq=bin_f,
+                    corr = correlation.Correlation(data1, data2, date_.day, no_background=nobg, bin_freq=bin_f,
                                                    bin_time=bin_t, flatten=flatten, bin_time_width=bin_t_w,
                                                    flatten_window=flatten_w, r_window=r_w)
                     corr.calculatePeaks(limit=limit)
                     try:
-                        event_peaks = analysis.peaksInData(data1, data2)
-                        for peak in corr.peaks:
-                            if peak.inList(event_peaks):
-                                e_list += peak
+                        if corr.peaks:
+                            e_list += corr.peaks
                     except AttributeError:
                         pass
                 else:
@@ -64,15 +62,15 @@ def run1stSearch(*date, days=1, mask_frq=False, nobg=True, bin_f=False, bin_t=Fa
             # empty list
             pass
         events_day.append(e_list)
-        analysis.saveData(date, event_list=e_list, step=1)
+        analysis.saveData(date_, event_list=e_list, step=1)
     return events_day
 
 
 def run2ndSearch(*date, mask_freq=True, no_bg=True, bin_f=False, bin_t=True, flatten=True, bin_t_w=None, flatten_w=None,
                  r_w=30):
-    date = const.getDateFromArgs(*date)
-    events_day = analysis.loadData(date, step=1)
-    e_list = events.EventList([])
+    date_ = const.getDateFromArgs(*date)
+    events_day = analysis.loadData(date_, step=1)
+    e_list = events.EventList([], date_)
     limit = 0.8
 
     for event in events_day:
@@ -102,7 +100,7 @@ def run2ndSearch(*date, mask_freq=True, no_bg=True, bin_f=False, bin_t=True, fla
             except FileNotFoundError:
                 warnings.warn(message="Some file not found", category=UserWarning)
 
-    analysis.saveData(date, event_list=e_list, step=2)
+    analysis.saveData(date_, event_list=e_list, step=2)
     return e_list
 
 
