@@ -56,7 +56,7 @@ def listSWPC(*date):
                              end_time=datetime(date_.year, date_.month, date_.day, end_hour, end_minute),
                              burst_type=b_type)
         references.append(event)
-    return events.EventList(references)
+    return events.EventList(references, date_)
 
 
 def urlMonstein(*date):
@@ -77,7 +77,7 @@ def listMonstein(*date):
     date_ = const.getDateFromArgs(*date)
     url = urlMonstein(*date)
     file = urllib.request.urlopen(url)
-    event_list = events.EventList([])
+    event_list = events.EventList([], date_)
     for line in file:
         decoded_line = line.decode("utf-8").rstrip("\n")
         if decoded_line.startswith(str(date_.year)):
@@ -110,7 +110,7 @@ def listMonstein2orMore(*date):
     date_ = const.getDateFromArgs(*date)
     url = urlMonstein(*date)
     file = urllib.request.urlopen(url)
-    event_list = events.EventList([])
+    event_list = events.EventList([], date_)
     for line in file:
         decoded_line = line.decode("utf-8").rstrip("\n")
         if decoded_line.startswith(str(date_.year)):

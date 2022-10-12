@@ -89,7 +89,7 @@ if __name__ == '__main__':
     if len(files) < 2:
         raise AttributeError("Not Enough Stations")
     data_points = [sum(data.DataPoint(i) for i in j) for j in files]
-    event_list = events.EventList([])
+    event_list = events.EventList([], datetime.datetime.today())
     if len(data_points) == 2:
         dp1, dp2, cor = analysis.calcPoint(datetime.datetime.today(), data_point_1=data_points[0],
                                            data_point_2=data_points[1],
