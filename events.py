@@ -23,7 +23,7 @@ def header():
            f"# Missing data: ##:##-##:##\n" \
            f"#\n"\
            f"#Date		Time		Type	Stations\n"\
-           f"#-------------------------------------------------------------------------------\n"
+           f"#-------------------------------------------------------------------------------"
 
 
 class Time(datetime):
@@ -139,6 +139,7 @@ class EventList:
                 for j in other.stations:
                     if len(event_tmp.stations) < MAX_STATIONS:
                         event_tmp.stations.append(j)
+                        event_tmp.stations = list(set(event_tmp.stations))
                     elif j in event_tmp.stations and len(event_tmp.stations) >= MAX_STATIONS:
                         pass
                     elif j not in event_tmp.stations and len(event_tmp.stations) >= MAX_STATIONS:
@@ -146,10 +147,12 @@ class EventList:
                             if not other.stations.count(stat[1]):
                                 event_tmp.stations.pop(stat[0])
                                 event_tmp.stations.append(j)
+                                event_tmp.stations = list(set(event_tmp.stations))
             else:
                 for j in other.stations:
                     if len(event_tmp.stations) < MAX_STATIONS:
                         event_tmp.stations.append(j)
+                        event_tmp.stations = list(set(event_tmp.stations))
                     else:
                         pass
         return temp

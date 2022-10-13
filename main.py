@@ -80,6 +80,8 @@ def run2ndSearch(*date, mask_freq=True, no_bg=True, bin_f=False, bin_t=True, fla
             try:
                 dp1_peak = data.createFromTime(event.time_start, station=i[0], extent=False)
                 dp2_peak = data.createFromTime(event.time_start, station=i[1], extent=False)
+                if dp1_peak.spectrum_data is None or dp2_peak.spectrum_data is None:
+                    continue
                 dp1_peak.createSummedCurve()
                 dp2_peak.createSummedCurve()
                 dp1_peak.flattenSummedCurve()
@@ -92,6 +94,8 @@ def run2ndSearch(*date, mask_freq=True, no_bg=True, bin_f=False, bin_t=True, fla
                                                        r_window=r_w,
                                                        flatten=flatten, bin_time=bin_t, bin_freq=bin_f, no_bg=no_bg,
                                                        flatten_window=bin_t_w, bin_time_width=flatten_w, limit=limit)
+                    if dp1 is None:
+                        continue
                     for peak in cor.peaks:
                         if peak.inList(event_peaks):
                             e_list += peak
@@ -112,8 +116,13 @@ if __name__ == '__main__':
             args[i] = int(j)
     run1stSearch(*args[:-1], days=args[-1], mask_frq=True)
     for i in range(args[-2], args[-2] + args[-1]):
-        run2ndSearch(args[:-2], i)
+        run2ndSearch(*args[:-2], i)
 
+
+"""    
+    for i in range(5,32):
+        run2ndSearch(2022,1,i)
+"""
 
 # TODO 20.01. bug 9:18
 # 16.01. 9:09 bug (flatten)  - 20.01. 9:01

@@ -112,6 +112,9 @@ def calcPoint(*date, obs1: stations.Station, obs2: stations.Station, data_point_
     else:
         date_ = data_point_1.spectrum_data.start
 
+    if data_point_1.spectrum_data is None or data_point_2.spectrum_data is None:
+        return
+
     if mask_frq:
         mask1 = maskBadFrequencies(data_point_1, limit=limit_frq)
         mask2 = maskBadFrequencies(data_point_2, limit=limit_frq)
