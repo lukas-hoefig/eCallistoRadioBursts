@@ -80,6 +80,8 @@ def run2ndSearch(*date, mask_freq=True, no_bg=True, bin_f=False, bin_t=True, fla
             try:
                 dp1_peak = data.createFromTime(event.time_start, station=i[0], extent=False)
                 dp2_peak = data.createFromTime(event.time_start, station=i[1], extent=False)
+                if dp1_peak.spectrum_data is None or dp2_peak.spectrum_data is None:
+                    continue
                 dp1_peak.createSummedCurve()
                 dp2_peak.createSummedCurve()
                 dp1_peak.flattenSummedCurve()
