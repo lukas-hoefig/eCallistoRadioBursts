@@ -98,7 +98,7 @@ even_time_format = "%H:%M:%S"
 plot_colors = ['blue', 'red', 'purple', 'green', 'yellow']
 
 frq_limit_low = 50.
-frq_limit_high = 900.
+frq_limit_high = 220.
 
 
 setupMatPlotLib()
