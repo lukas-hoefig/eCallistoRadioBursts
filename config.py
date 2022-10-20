@@ -76,7 +76,12 @@ def pathDataDay(*date):
     :return:
     """
     date_ = getDateFromArgs(*date)
-    return path_data + f"{date_.year}/{date_.month:02}/{date_.day:02}/"
+    return path_data + pathDay(date_)
+
+
+def pathDay(*date):
+    date_ = getDateFromArgs(*date)
+    return f"{date_.year}/{date_.month:02}/{date_.day:02}/"
 
 
 def getPathScript():
@@ -88,6 +93,7 @@ def getPathScript():
 
 path_script = getPathScript()
 path_data = path_script + "eCallistoData/"                # "C:/Users/14hoefig/data/eCallisto/"                   #  "eCallistoData/"
+path_realtime = path_data + "realtime/"
 path_plots = "eCallistoPlots/"
 file_type = ".fit"
 file_type_zip = ".fit.gz"
@@ -97,7 +103,9 @@ DATA_POINTS_PER_SECOND = 4
 LENGTH_FILES_MINUTES = 15
 BIN_FACTOR = 4
 ROLL_WINDOW = 180
-even_time_format = "%H:%M:%S"
+event_time_format = "%H:%M:%S"
+event_time_format_short = "%H:%M"
+event_time_format_date = "%Y%m%d"
 plot_colors = ['blue', 'red', 'purple', 'green', 'yellow']
 
 frq_limit_low = 50.

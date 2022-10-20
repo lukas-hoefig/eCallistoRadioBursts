@@ -16,11 +16,11 @@ import urllib
 from bs4 import BeautifulSoup
 import os
 
-import const
+import config
 
-frq_limit_low = const.frq_limit_low
-frq_limit_high = const.frq_limit_high
-e_callisto_url = const.e_callisto_url
+frq_limit_low = config.frq_limit_low
+frq_limit_high = config.frq_limit_high
+e_callisto_url = config.e_callisto_url
 
 station_dict = {}
 station_list = []
@@ -88,12 +88,12 @@ def getFocusCode(*date, station: str):
     """
     gets the first valid focus code for the frq band 
     """
-    date_ = const.getDateFromArgs(*date)
+    date_ = config.getDateFromArgs(*date)
 
-    files = os.listdir(const.pathDataDay(date_))
+    files = os.listdir(config.pathDataDay(date_))
     files_station = [i for i in files if i.startswith(station)]
     for i in files_station:
-        file = fits.open(const.pathDataDay(date_) + i)
+        file = fits.open(config.pathDataDay(date_) + i)
         frq_axis = file[1].data['frequency'].flatten()
         frq = sorted([frq_axis[0], frq_axis[-1]])
         if frq[0] < frq_limit_low and frq[1] < frq_limit_high:
@@ -123,7 +123,7 @@ def listFD(url: str, station: List[str]):
 
 
 def getStations(*date):
-    date_ = const.getDateFromArgs(*date)
+    date_ = config.getDateFromArgs(*date)
 
     date_str = "{:%Y/%m/%d}".format(date_)
     files = listFilesDay(e_callisto_url + date_str)
@@ -177,8 +177,7 @@ def getStationFromFile(file: str):
             frq_axis = fds[1].data["frequency"].flatten()
             frq = sorted([frq_axis[0], frq_axis[-1]])
             if frq[0] < frq_limit_low and frq[1] < frq_limit_high:
-                station = Station(name, focus_code, lon, lat, frq)
-                return station
+                return Station(name, focus_code, lon, lat, frq)
             raise AttributeError("Station in file has wrong frequency range.")
     except IndexError:
         print(f"failed to open {file}")

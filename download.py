@@ -5,10 +5,9 @@ import datetime
 import radiospectra.sources.callisto as cal
 import os
 import copy
-
 from typing import List, Union, Tuple
 
-import const
+import config
 import stations
 
 file_log = ".datalog"
@@ -24,7 +23,7 @@ def downloadFullDay(*date: Union[datetime.datetime, int],
     :param date: datetime
     :param station: name-codes|Stations
     """
-    date_ = const.getDateFromArgs(*date)
+    date_ = config.getDateFromArgs(*date)
     station = copy.deepcopy(station)
     if not isinstance(station, list):
         station = [station]
@@ -35,7 +34,7 @@ def downloadFullDay(*date: Union[datetime.datetime, int],
     year = date_.year
     month = date_.month
     day = date_.day
-    download_path = const.pathDataDay(date_)
+    download_path = config.pathDataDay(date_)
     time_start = datetime.datetime(year, month, day)
     time_end = datetime.datetime(year, month, day, 23, 59, 59)
 
@@ -71,12 +70,12 @@ def createLog(*date: datetime.datetime, station: List[str], _overwrite=True):
     """
     if not station:
         return
-    date_ = const.getDateFromArgs(*date)
+    date_ = config.getDateFromArgs(*date)
     today = datetime.datetime.today()
-    if date_.year == today.hour and date_.month == today.month and date_.day == today.day:
+    if date_.year == today.year and date_.month == today.month and date_.day == today.day:
         return
 
-    path_log = const.pathDataDay(date_)
+    path_log = config.pathDataDay(date_)
     if _overwrite:
         datalog = open(path_log + file_log, 'w')
     else:
@@ -99,9 +98,9 @@ def dataAvailable(*date) -> Tuple[bool, Union[None, List[str]]]:
     :param date: datetime, integer: year, month, day
     :return: bool, list[str] observatories for which data is available
     """
-    date_ = const.getDateFromArgs(*date)
+    date_ = config.getDateFromArgs(*date)
 
-    path_log = const.pathDataDay(date_)
+    path_log = config.pathDataDay(date_)
     if not os.path.exists(path_log):
         return False, None
     try:
@@ -123,7 +122,7 @@ def stationsAvailable(*date) -> Tuple[bool, List[str]]:
     :param date: datetime, integer: year, month, day
     :return: bool, list[str] observatories for which data is available
     """
-    date_ = const.getDateFromArgs(*date)
+    date_ = config.getDateFromArgs(*date)
     data_available, station = dataAvailable(date_)
     stations_available = []
     for i in station:

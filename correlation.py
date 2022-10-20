@@ -8,12 +8,12 @@ from datetime import datetime, timedelta
 
 import events
 import data
-import const
+import config
 
 CORRELATION_MIN = 0.8
 CORRELATION_PEAK_END = 0.25
-DATA_POINTS_PER_SECOND = const.DATA_POINTS_PER_SECOND
-BIN_FACTOR = const.BIN_FACTOR
+DATA_POINTS_PER_SECOND = config.DATA_POINTS_PER_SECOND
+BIN_FACTOR = config.BIN_FACTOR
 LENGTH_TYPE_III_AVG = 120    # TODO definition type II / III -> const | * 4 for seconds ?
 TYPE_III = "III"
 TYPE_II = " II"
