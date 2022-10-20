@@ -32,6 +32,7 @@ def unzip(folder: str):
     """
     unzip all files in folder (.gz)
     """
+    print("unzipping", folder)
     for file in os.listdir(folder):
         if file.endswith(const.file_type_zip):
             name_zipped = folder + file

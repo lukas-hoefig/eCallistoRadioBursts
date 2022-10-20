@@ -86,7 +86,7 @@ def getStationFromStr(name: str) -> Station:
 
 def getFocusCode(*date, station: str):
     """
-    gets the first valid focus code for the frq band [<50,<500] or None
+    gets the first valid focus code for the frq band 
     """
     date_ = const.getDateFromArgs(*date)
 
@@ -98,7 +98,7 @@ def getFocusCode(*date, station: str):
         frq = sorted([frq_axis[0], frq_axis[-1]])
         if frq[0] < frq_limit_low and frq[1] < frq_limit_high:
             return i.rsplit("_")[-1].rstrip(".fit.gz")
-    return None
+    raise ValueError("No valid focus code for that day")
 
 
 def listFilesDay(url: str):
@@ -141,28 +141,30 @@ def getStations(*date):
         focus_code = i[1]
         for a, b in enumerate(listFD(e_callisto_url + date_str, i)):
             with fits.open(b) as fds:
-                lat = fds[0].header['OBS_LAT']
-                lac = fds[0].header['OBS_LAC']
-                if lac == 'S':
-                    lat = -lat
-                lon = fds[0].header['OBS_LON']
-                loc = fds[0].header['OBS_LOC']
-                if loc == 'W':
-                    lon = -lon
-                frq_axis = fds[1].data['frequency'].flatten()
-                frq = sorted([frq_axis[0], frq_axis[-1]])
-                if frq[0] < frq_limit_low and frq[1] < frq_limit_high:
-                    station = Station(name, focus_code, lon, lat, frq)
-                    stations_return.append(station)
+                try: 
+                    lat = fds[0].header['OBS_LAT']
+                    lac = fds[0].header['OBS_LAC']
+                    if lac == 'S':
+                        lat = -lat
+                    lon = fds[0].header['OBS_LON']
+                    loc = fds[0].header['OBS_LOC']
+                    if loc == 'W':
+                        lon = -lon
+                    frq_axis = fds[1].data['frequency'].flatten()
+                    frq = sorted([frq_axis[0], frq_axis[-1]])
+                    if frq[0] < frq_limit_low and frq[1] < frq_limit_high:
+                        station = Station(name, focus_code, lon, lat, frq)
+                        stations_return.append(station)
+                except IndexError:
+                    print("Could not read fits file of ", b)
                 break
     return stations_return
 
 
 def getStationFromFile(file: str):
+    name = file.rsplit("/")[-1].rsplit("_")[0]
+    focus_code = file.rsplit("/")[-1].rsplit("_")[-1].rstrip(".fit.gz")
     try:
-
-        name = file.rsplit("/")[-1].rsplit("_")[0]
-        focus_code = file.rsplit("/")[-1].rsplit("_")[-1].rstrip(".fit.gz")
         with fits.open(file) as fds:
             lat = fds[0].header['OBS_LAT']
             lac = fds[0].header['OBS_LAC']
@@ -177,7 +179,7 @@ def getStationFromFile(file: str):
             if frq[0] < frq_limit_low and frq[1] < frq_limit_high:
                 station = Station(name, focus_code, lon, lat, frq)
                 return station
-            return None
+            raise AttributeError("Station in file has wrong frequency range.")
     except IndexError:
         print(f"failed to open {file}")
-        return None
+        return Station(name, focus_code=focus_code)

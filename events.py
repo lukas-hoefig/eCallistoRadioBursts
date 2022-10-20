@@ -116,9 +116,9 @@ class EventList:
             return self.__radd__(other)
 
         if isinstance(other, EventList):
-            temp = EventList([], other.date)
+            temp = copy.deepcopy(self)
             for i in other.events:
-                temp = self.__radd__(i)
+                temp = temp.__radd__(i)
             return temp
 
     def __radd__(self, other):

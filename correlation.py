@@ -81,14 +81,14 @@ class Correlation:
         curve1 = self.data_point_1.summed_curve
         curve2 = self.data_point_2.summed_curve
 
-        if self.data_point_1.spectrum_data.start < self.data_point_2.spectrum_data.start:
+        if delta_t_start and self.data_point_1.spectrum_data.start < self.data_point_2.spectrum_data.start:
             curve1 = curve1[int(self.data_per_second_1 * abs(delta_t_start)):]
-        else:
+        elif delta_t_start and self.data_point_1.spectrum_data.start > self.data_point_2.spectrum_data.start:
             curve2 = curve2[int(self.data_per_second_2 * abs(delta_t_start)):]
 
-        if self.data_point_1.spectrum_data.end > self.data_point_2.spectrum_data.end:
+        if delta_t_end and self.data_point_1.spectrum_data.end > self.data_point_2.spectrum_data.end:
             curve1 = curve1[:-int(self.data_per_second_1 * abs(delta_t_end))]
-        else:
+        elif delta_t_end and self.data_point_1.spectrum_data.end < self.data_point_2.spectrum_data.end:
             curve2 = curve2[:-int(self.data_per_second_2 * abs(delta_t_end))]
 
         if self.data_per_second_1 < self.data_per_second_2:
@@ -227,7 +227,7 @@ class Correlation:
             self.data_point_2.binDataFreq(method=self.method_bin_f)
 
 
-def setupSummedCurve(data_point, frequency_range, flatten, flatten_window):
+def setupSummedCurve(data_point: data.DataPoint, frequency_range, flatten: bool, flatten_window):
     data_point.createSummedCurve(frequency_range)
     if flatten:
         data_point.flattenSummedCurve(flatten_window)

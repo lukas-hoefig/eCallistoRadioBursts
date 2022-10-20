@@ -73,6 +73,8 @@ def fileNameMonstein(*date):
 def listMonstein(*date):
     """
     TODO: download txt , check if file exist, only then check url
+
+    TODO: skip entries with typos -> raise warning, print line
     """
     date_ = const.getDateFromArgs(*date)
     url = urlMonstein(*date)
@@ -98,7 +100,7 @@ def listMonstein(*date):
                 _observatories = []
                 for i in _stations:
                     try:
-                        _observatories.append(stations.Station(i))        # TODO aaaaaaaaaaaaaaaaaaaaa
+                        _observatories.append(stations.Station(i))        
                     except KeyError:
                         pass
                 event = events.Event(_time_start, end_time=_time_end, stations=_observatories, burst_type=_type)

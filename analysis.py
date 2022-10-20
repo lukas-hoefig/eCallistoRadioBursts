@@ -163,7 +163,8 @@ def plotDatapoint(datapoint: data.DataPoint):
     plt.show()
 
 
-def plotEverything(dp1: data.DataPoint, dp2: data.DataPoint, cor: correlation.Correlation):
+def plotEverything(dp1: data.DataPoint, dp2: data.DataPoint, cor: correlation.Correlation,
+                   limit=correlation.CORRELATION_MIN, save_img=False):
     if cor.day == dp1.day:
         year = dp1.year
         month = dp1.month
@@ -204,7 +205,7 @@ def plotEverything(dp1: data.DataPoint, dp2: data.DataPoint, cor: correlation.Co
     plt.xticks(rotation=60)
 
     ax2 = plt.twinx(ax)
-    plot_limit = ax2.axhline(0.8, color="yellow", linestyle='--', label='Correlation Limit')
+    plot_limit = ax2.axhline(limit, color="yellow", linestyle='--', label='Correlation Limit')
     time_axis_plot = []
     for i in _time:
         time_axis_plot.append(datetime.fromtimestamp(_time_start + i).strftime("%Y %m %d %H:%M:%S"))
@@ -262,10 +263,12 @@ def plotEverything(dp1: data.DataPoint, dp2: data.DataPoint, cor: correlation.Co
     labs = [i.get_label() for i in plots]
     plt.legend(plots, labs, loc="lower right")     # -> TODO position
     plt.tight_layout()
+    if save_img:
+        plt.savefig(cor.fileName(), transparent=True)
     plt.show()
 
 
-def peaksInData(dp1: data.DataPoint, dp2: data.DataPoint, plot=False, peak_limit=2):
+def peaksInData(dp1: data.DataPoint, dp2: data.DataPoint, plot=False, peak_limit=2.35):
     """
 
     """
@@ -409,7 +412,7 @@ def saveData(*date, step: int, event_list: events.EventList):
         pickle.dump(event_list, file)
 
 
-def loadData(*date, step: int):
+def loadData(*date, step: int) -> events.EventList:
     """
     """
     date_ = const.getDateFromArgs(*date)

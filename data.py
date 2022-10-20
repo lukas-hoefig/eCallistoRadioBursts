@@ -441,16 +441,23 @@ def listDataPointDay(*date, station: stations.Station):
     date_behind_relevant = cutDayAfter(date_behind_list, midnight)
 
     if date_ahead_relevant and date_behind_relevant:
-        date_ahead_relevant.extend(cutDayAfter(day_list, midnight))
-        day_list = cutDayBefore(day_list, midnight)
-        day_list.extend(date_behind_relevant)
+        date_ahead_relevant = [date_ahead_relevant[-1]]
 
         frq_profile_1st = frqProfile(date_ahead_list)
         frq_profile_2nd = frqProfile(day_list)
-        date_ahead_relevant = cutFreqProfile(date_ahead_relevant, frq_profile_1st)
-        day_list = cutFreqProfile(day_list, frq_profile_2nd)
+        if frq_profile_1st == frq_profile_2nd:
+            date_ahead_relevant.extend(cutDayAfter(day_list, midnight))
 
-        date_ahead_relevant = date_ahead_relevant
+        day_list = cutDayBefore(day_list, midnight)
+        date_behind_relevant = [date_behind_relevant[0]]
+
+        frq_profile_3rd = frqProfile(date_behind_relevant)
+        if frq_profile_2nd == frq_profile_3rd:
+            day_list.extend(date_behind_relevant)
+
+        date_ahead_relevant = cutFreqProfile(date_ahead_relevant, frqProfile(date_ahead_relevant))
+        day_list = cutFreqProfile(day_list, frqProfile(day_list))
+
         return [date_ahead_relevant, day_list]
 
     if not day_list:
@@ -491,17 +498,19 @@ def fitTimeFrameDataSample(_data_point1, _data_point2):
     return data_merged1, data_merged2
 
 
-"""
-"""
-
+#
 # TODO: obsolete?
-
-"""
-"""
+#       ||
+#       ||
+#      \  /
+#       v
 
 
 def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, axis, _plot=True, peaks=None, new_ax=False,
               label=None, color=None):
+    """
+    TODO: rewrite peaks -> events.Event | events.EventList
+    """
     plotCurve.curve += 1
     if _bin_time:
         data_per_second = DATA_POINTS_PER_SECOND / _bin_time_width                                  # TODO
@@ -528,7 +537,7 @@ def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, axis, _plot
         curve = ax.plot(dataframe, color=color, linewidth=1, label=label)
 
         if peaks:
-            if type(peaks) == str:
+            if not isinstance(peaks, list):
                 peaks = [peaks]
             for i in peaks:
                 ax.axvline(pd.to_datetime(
@@ -554,5 +563,6 @@ def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, axis, _plot
     #     plt.savefig(const.path_plots + file_name)
     # plt.close()
     return curve
+
 
 plotCurve.curve = 0

@@ -10,9 +10,12 @@ Paths, names, constants needed in several scripts
 """
 
 
+import warnings
 import os
 import matplotlib.pyplot as plt
 import datetime
+
+warnings.simplefilter("ignore", UserWarning)
 
 
 def setupMatPlotLib():
