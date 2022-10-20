@@ -11,17 +11,17 @@ import os
 from astropy.io import fits
 from typing import List, Union
 
-import const
+import config
 import stations
 import download
 import events
 
-file_ending = const.file_ending
+file_ending = config.file_ending
 FREQ_MIN = 0
 FREQ_MAX = 1
 BIN_WIDTH_FREQUENCY = 2
-DATA_POINTS_PER_SECOND = const.DATA_POINTS_PER_SECOND
-BIN_FACTOR = const.BIN_FACTOR
+DATA_POINTS_PER_SECOND = config.DATA_POINTS_PER_SECOND
+BIN_FACTOR = config.BIN_FACTOR
 CURVE_FLATTEN_WINDOW = 100
 
 
@@ -52,9 +52,9 @@ class DataPoint:
         self.second = int(reader[2][4:])
         self.date = datetime(self.year, self.month, self.day, self.hour, self.minute, self.second)
 
-        self.observatory = stations.getStationFromFile(const.pathDataDay(self.date) + file)
+        self.observatory = stations.getStationFromFile(config.pathDataDay(self.date) + file)
         self.spectral_range_id = reader[3][:2]
-        self.path = const.pathDataDay(self.date)
+        self.path = config.pathDataDay(self.date)
 
         self.readFile()
         if not self:
@@ -250,7 +250,7 @@ class DataPoint:
         self.background_subtracted = True
 
     def flattenSummedCurve(self, rolling_window=CURVE_FLATTEN_WINDOW):
-        if self.number_values > 3 * const.LENGTH_FILES_MINUTES * 60 * const.DATA_POINTS_PER_SECOND:
+        if self.number_values > 3 * config.LENGTH_FILES_MINUTES * 60 * config.DATA_POINTS_PER_SECOND:
             median = np.array(pd.Series(self.summed_curve).rolling(rolling_window).median())
             self.flattened_window = rolling_window
         else:
@@ -284,7 +284,7 @@ def createDayList(*date, station: Union[stations.Station, str]) -> List[DataPoin
     :param station:
     :return: List[DataPoints]
     """
-    date_ = const.getDateFromArgs(*date)
+    date_ = config.getDateFromArgs(*date)
 
     if isinstance(station, str):
         focus_code = stations.getFocusCode(date_, station=station)
@@ -293,7 +293,7 @@ def createDayList(*date, station: Union[stations.Station, str]) -> List[DataPoin
         focus_code = station.focus_code
         station_name = station.name
 
-    path = const.pathDataDay(date_)
+    path = config.pathDataDay(date_)
     files_day = sorted(os.listdir(path))
     files_observatory = []
     data_day = []
@@ -323,7 +323,7 @@ def createDay(*date, station: Union[stations.Station, str]) -> DataPoint:
 
 
 def createFromTime(*date, station: Union[stations.Station, str], extent=True) -> DataPoint:
-    date_ = const.getDateFromArgs(*date)
+    date_ = config.getDateFromArgs(*date)
 
     if isinstance(station, str):
         spectral_id = stations.getFocusCode(date_, station=station)
@@ -332,7 +332,7 @@ def createFromTime(*date, station: Union[stations.Station, str], extent=True) ->
         spectral_id = station.focus_code
         station_name = station.name
 
-    path = const.pathDataDay(date_)
+    path = config.pathDataDay(date_)
     files = sorted(os.listdir(path))
     time_target = date_.hour * 3600 + date_.minute * 60 + date_.second
     files_filtered = []
@@ -376,7 +376,7 @@ def createFromEvent(event: events.Event, station=None):
     dp = createFromTime(time_start, station=obs)  # TODO this crashes -> whole thing as datetime, Events->datetime
     i = 1
     while dp.spectrum_data.end < time_end:
-        new_time = time_start + timedelta(minutes=const.LENGTH_FILES_MINUTES * i)
+        new_time = time_start + timedelta(minutes=config.LENGTH_FILES_MINUTES * i)
         dp += createFromTime(new_time, station=obs)
         i += 1
     
@@ -385,9 +385,9 @@ def createFromEvent(event: events.Event, station=None):
     else:
         delta = 0
     del_start = int((event.time_start - dp.spectrum_data.start - timedelta(seconds=delta)).total_seconds()
-                    * const.DATA_POINTS_PER_SECOND)
+                    * config.DATA_POINTS_PER_SECOND)
     del_end = int((event.time_end - dp.spectrum_data.start + timedelta(seconds=delta)).total_seconds()
-                  * const.DATA_POINTS_PER_SECOND)
+                  * config.DATA_POINTS_PER_SECOND)
     if del_start < 0:
         del_start = 0
     dp.spectrum_data.data = dp.spectrum_data.data[:, del_start:del_end]
@@ -423,7 +423,7 @@ def listDataPointDay(*date, station: stations.Station):
 
     """
 
-    date_ = const.getDateFromArgs(*date)
+    date_ = config.getDateFromArgs(*date)
     date_ = datetime(year=date_.year, month=date_.month, day=date_.day, hour=int(station.obsTime()))
     date_ahead = date_ - timedelta(days=1)
     date_behind = date_ + timedelta(days=1)
@@ -525,7 +525,7 @@ def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, axis, _plot
     dataframe['data'] = _data
     
     if not color:
-        color = const.getColor()
+        color = config.getColor()
     
     if new_ax:
         ax = axis.twinx()

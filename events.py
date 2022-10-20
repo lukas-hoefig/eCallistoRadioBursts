@@ -6,13 +6,13 @@ from datetime import datetime, timedelta
 
 from typing import List, Union
 
-import const
+import config
 
 MAX_STATIONS = 3
 TIME_TOLERANCE = 60
 LIMIT = 0.70
-DATA_POINTS_PER_SECOND = const.DATA_POINTS_PER_SECOND
-BIN_FACTOR = const.BIN_FACTOR
+DATA_POINTS_PER_SECOND = config.DATA_POINTS_PER_SECOND
+BIN_FACTOR = config.BIN_FACTOR
 BURST_TYPE_UNKNOWN = "???"
 
 
@@ -24,6 +24,9 @@ def header():
            f"#\n"\
            f"#Date		Time		Type	Stations\n"\
            f"#-------------------------------------------------------------------------------"
+
+
+# TODO remove class Time()
 
 
 class Time(datetime):
@@ -58,8 +61,14 @@ class Event:
         self.probability = probability
         self.stations = stations
 
-    def __str__(self):
-        return str([self.burst_type, self.time_start, self.time_end, f"{self.probability:.4f}"])
+    def __str__(self, full=False):
+        if not full:
+            station_names = [i.name for i in self.stations]
+            return f"{self.time_start.strftime(config.event_time_format_date)}\t" \
+                   f"{self.time_start.strftime(config.event_time_format_short)}-{self.time_end.strftime(config.event_time_format_short)}\t"\
+                   f"{self.burst_type}\t{', '.join(station_names)}"
+        else:
+            return str([self.burst_type, self.time_start, self.time_end, f"{self.probability:.4f}"])
 
     def __repr__(self):
         return self.__str__()
@@ -96,7 +105,7 @@ class Event:
 class EventList:
     def __init__(self, events: Union[Event, List[Event]], *date):
         self.events = []
-        self.date = const.getDateFromArgs(*date)
+        self.date = config.getDateFromArgs(*date)
         if isinstance(events, Event):
             self.events = [events]
         elif isinstance(events, list):
@@ -185,20 +194,15 @@ class EventList:
         return self.__sub__(other)
 
     def __repr__(self):
-        return str(self.events)
+        return self.__str__()
 
     def __str__(self):
-        return self.__repr__()
+        if self:
+            str_ = [i.__str__() for i in self.events]
+            return "\n".join(str_)
+        else:
+            return f"{self.date.strftime(config.event_time_format_date)}\t##:##-##:##"
 
     def sort(self):
         self.events = sorted(self.events, key=lambda event: event.time_start)
-
-    def printOut(self):
-        if not self:
-            return f"{self.date.year}{self.date.month:02}{self.date.day:02}\t##:##-##:##"
-        else:
-            str_return = "\n".join([f"{self.date.year}{self.date.month:02}{self.date.day:02}\t"
-                                    f"{e.time_start.hour:02}:{e.time_start.minute:02}-"
-                                    f"{e.time_end.hour:02}:{e.time_end.minute:02}\t{e.burst_type}\t"
-                                    f"{', '.join([stat.name for stat in e.stations])}" for e in self.events])
-            return str_return
+        

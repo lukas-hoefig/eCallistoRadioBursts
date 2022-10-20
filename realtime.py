@@ -14,10 +14,13 @@ import copy
 import datetime
 import os
 import sys    # sys.argv   [0]name script [1-n] arguments
-from typing import List
+from typing import List, Union
+from ftplib import FTP
+import shutil
+import pickle
 
 import analysis
-import const
+import config
 import correlation
 import events
 import stations
@@ -29,23 +32,64 @@ token_download = "token1"
 token_handle   = "token2"
 token_auth = "token3"
 
-observatories = ["AUSTRIA-UNIGRAZ", "AUSTRIA-OE3FLB", "SWISS-Landschlacht"]
+ftp_server = "147.86.8.73"
+ftp_acc = 'solarradio'
+ftp_psswd = 'solar$251'
+ftp_directory = 'XCHG'
+
+# observatories = ["AUSTRIA-UNIGRAZ", "AUSTRIA-OE3FLB", "SWISS-Landschlacht"]
 
 
-def deleteOldFiles():
-    pass
+def deleteOldFiles(*date):
+    if date:
+        date_ = config.getDateFromArgs(*date)
+    else:
+        date_ = datetime.datetime.today() - datetime.timedelta(days=2)
+    try:
+        path = config.pathDataDay(date_)
+        shutil.rmtree(path)
+    except FileNotFoundError: 
+        pass
 
 
-def getFilesFromExtern():
-    path_dl = const.pathDataDay(datetime.datetime.today())
+def stationsToday():
+    all_files = os.listdir(config.pathDataDay(datetime.datetime.today()))
+    observatories = []
+    for file in all_files:
+        try:
+            if not any([i.name == file.rsplit("_")[0] for i in observatories]):
+                obs = stations.getStationFromFile(config.pathDataDay(datetime.datetime.today()) + file)
+                observatories.append(obs)
+        except AttributeError:
+            pass
+    observatories = list(set(observatories))
+    return observatories
+
+
+def downloadFtpNewFiles(path: str):
+    with FTP(ftp_server) as ftp:
+        ftp.login(ftp_acc, ftp_psswd)
+        ftp.cwd(ftp_directory)
+        files = ftp.nlst()
+        print(f"Downloading files from server: {len(files)}")
+        for i in enumerate(files):
+            print(f"{i[0] + 1:4} ({ftp.size(i[1])/1024:9.3f} kB): {i[1]}           ", end="\r")
+            with open(path + i[1], 'wb') as fp:
+                # CMD = 'RETR ' + config.pathDataDay(datetime.datetime.today()) + i
+                CMD = 'RETR ' + i[1]
+                ftp.retrbinary(CMD, fp.write)
+        ftp.quit()
+    print("All files downloaded successfully                                         ")
+    
+
+def getFilesFromExtern(observatories=None):
+    if observatories is None:
+        observatories = ["AUSTRIA-UNIGRAZ", "AUSTRIA-OE3FLB", "SWISS-Landschlacht"]
+    path_dl = config.pathDataDay(datetime.datetime.today())
+    # downloadFtpNewFiles(path_dl)    <--- finally
     # nextcloud.downloadFromCloud(token_download, path=path_dl)
     download.downloadFullDay(datetime.datetime.today(), station=observatories)
-    nextcloud.unzip(path_dl)
-
-
-def pathData():
-    today = datetime.datetime.today()
-    return const.pathDataDay(today)
+    # nextcloud.unzip(path_dl)
 
 
 def getDate(file: str):
@@ -62,8 +106,8 @@ def getDate(file: str):
     return datetime.datetime(year, month, day, hour, minute, second)
 
 
-def dropOld(list_str: List[List[str]]):
-    new = [i[-3:] for i in list_str]
+def dropOld(list_str: List[List[str]], num=2):
+    new = [i[-num:] for i in list_str]
     newest_all = [getDate(i[-1]) for i in new]
     newest = max(newest_all)
     files = [i[1] for i in enumerate(new) if
@@ -71,17 +115,91 @@ def dropOld(list_str: List[List[str]]):
     return files
 
 
-def getFiles():
-    focus_codes = [stations.getFocusCode(datetime.datetime.today(), station=obs) for obs in observatories]
-    files_all = sorted(os.listdir(pathData()))
+def getFiles(observatories: List[Union[str, stations.Station]]):
+    for i in enumerate(observatories):
+        if isinstance(i[1], str):
+            observatories[i[0]] = stations.Station(i[1], stations.getFocusCode(datetime.datetime.today(), station=i[1]))
+
+    # focus_codes = [stations.getFocusCode(datetime.datetime.today(), station=obs) for obs in observatories]
+    files_all = sorted(os.listdir(config.pathDataDay(datetime.datetime.today())))
     files_stations = [[file for file in files_all
-                       if file.startswith(observatory) and file.endswith(focus_codes[i] + const.file_ending)]
-                      for i, observatory in enumerate(observatories)]
+                       if file.startswith(observatory.name) and
+                          file.endswith(observatory.focus_code + config.file_ending)] for observatory in observatories]
     files_filtered = dropOld(files_stations)
 
     return files_filtered
 
 
+def filename():
+    today = datetime.datetime.today()
+    return config.path_realtime + config.pathDay(today) + f"{today.year}_{today.month}_{today.day}"
+
+
+def saveRealTime(event_list: events.EventList):
+    file_name = filename()
+    folder = file_name[:file_name.rfind("/")+1]
+    if not (os.path.exists(folder) and os.path.isdir(folder)):
+        os.makedirs(folder)
+    if os.path.exists(filename()):
+        os.remove(filename())
+    with open(filename(), "wb") as file:
+        pickle.dump(event_list, file)
+
+
+def loadRealTime() -> events.EventList:
+    file = filename()
+    folder = file[:file.rfind("/") + 1]
+    if os.path.exists(filename()):
+        with open(file, "rb") as read_file:
+            loaded_data = pickle.load(read_file)
+        return loaded_data
+    else:
+        if not (os.path.exists(folder) and os.path.isdir(folder)):
+            os.makedirs(folder)
+
+        return events.EventList([], today)
+
+
+if __name__ == "__main__":
+    today = datetime.datetime.today()
+    # deleteOldFiles()
+    obs = stationsToday()
+    f = getFiles(obs)
+    e_list = loadRealTime()
+    sets = [sum([data.DataPoint(j) for j in i]) for i in f]
+    for i, data_point_1 in enumerate(sets):
+        for j, data_point_2 in enumerate(sets[i+1:]):
+            data_1 = copy.deepcopy(data_point_1)
+            data_2 = copy.deepcopy(data_point_2)
+            if not data_1 or not data_2:
+                continue
+            # if mask_frq:
+            #    mask1 = analysis.maskBadFrequencies(data_1)
+            #    mask2 = analysis.maskBadFrequencies(data_2)
+            # data1.spectrum_data.data[mask1] = np.nanmean(data1.spectrum_data.data)
+            # data2.spectrum_data.data[mask2] = np.nanmean(data2.spectrum_data.data)
+            corr = correlation.Correlation(data_1, data_2, today.day, no_background=True, bin_freq=False,
+                                           bin_time=False, flatten=True, bin_time_width=None,
+                                           flatten_window=None, r_window=180)
+            corr.calculatePeaks(limit=.6)
+            try:
+                if corr.peaks:
+                    e_list += corr.peaks
+            except AttributeError:
+                pass
+        else:
+            pass
+    try:
+        e_list.sort()
+    except AttributeError:
+        # empty list
+        pass
+    saveRealTime(e_list)
+    print(e_list)
+
+
+
+"""
 if __name__ == '__main__':
     getFilesFromExtern()
     files = getFiles()
@@ -129,14 +247,6 @@ if __name__ == '__main__':
             event_list += cor3.peaks
         except AttributeError:
             pass
-    if event_list:
-        station_names_list = [i.observatory.name for i in data_points]
-        if len(data_points) == 2:
-            station_names = f"{station_names_list[0]} and {station_names_list[1]}"
-        else:
-            station_names = f"{station_names_list[0]}, {station_names_list[1]} and {station_names_list[2]}"
-        print(f"Events found at {station_names}.")
-        print(event_list)
-    else:
-        print("No Event found.")
-
+        
+    print(events.header() + event_list)
+"""

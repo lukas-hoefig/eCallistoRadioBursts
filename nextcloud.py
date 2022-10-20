@@ -16,7 +16,7 @@ import os
 import shutil
 import gzip
 
-import const
+import config
 
 url = 'https://cloud.uni-graz.at/'
 
@@ -25,7 +25,7 @@ token_download = "iKwKK25HwCz5jja"
 token_upload = "sBLCnTW8fJBtpLD"
 token_security = "oobta-Lngif-m2pZ7-HLxip-FWEXc"
 
-path_download = const.path_data
+path_download = config.path_data
 
 
 def unzip(folder: str):
@@ -34,7 +34,7 @@ def unzip(folder: str):
     """
     print("unzipping", folder)
     for file in os.listdir(folder):
-        if file.endswith(const.file_type_zip):
+        if file.endswith(config.file_type_zip):
             name_zipped = folder + file
             name_unzipped = (folder + file).rstrip(".gz")
             with gzip.open(name_zipped, "rb") as zipped:
