@@ -109,8 +109,9 @@ event_time_format_short = "%H:%M"
 event_time_format_date = "%Y%m%d"
 plot_colors = ['blue', 'red', 'purple', 'green', 'yellow']
 
-frq_limit_low = 50.
-frq_limit_high = 220.
-
+frq_limit_low_upper = 50.
+frq_limit_high_upper = 220.
+frq_limit_low_lower = 1.
+frq_limit_high_lower = 70.
 
 setupMatPlotLib()
