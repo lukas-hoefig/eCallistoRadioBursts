@@ -135,6 +135,12 @@ def filename():
     return config.path_realtime + config.pathDay(today) + f"{today.year}_{today.month}_{today.day}"
 
 
+def saveRealtimeTxt(event_list: events.EventList):
+    file_name = filename() + ".txt"
+    with open(file_name, "w+") as file:
+        file.write("\n".join([events.header(), str(event_list)]))
+
+
 def saveRealTime(event_list: events.EventList):
     file_name = filename()
     folder = file_name[:file_name.rfind("/")+1]
@@ -162,10 +168,12 @@ def loadRealTime() -> events.EventList:
 
 if __name__ == "__main__":
     today = datetime.datetime.today()
+    getFilesFromExtern()
     # deleteOldFiles()
     obs = stationsToday()
     f = getFiles(obs)
-    e_list = loadRealTime()
+    e_list_old = loadRealTime()
+    e_list_new = events.EventList([], datetime.datetime.today())
     sets = [sum([data.DataPoint(j) for j in i]) for i in f]
     for i, data_point_1 in enumerate(sets):
         for j, data_point_2 in enumerate(sets[i+1:]):
@@ -184,19 +192,99 @@ if __name__ == "__main__":
             corr.calculatePeaks(limit=.6)
             try:
                 if corr.peaks:
-                    e_list += corr.peaks
+                    e_list_new += corr.peaks
             except AttributeError:
                 pass
         else:
             pass
     try:
-        e_list.sort()
+        e_list_new.sort()
     except AttributeError:
         # empty list
         pass
-    saveRealTime(e_list)
-    print(e_list)
 
+    if not e_list_new:
+        saveRealTime(e_list_old)
+        saveRealtimeTxt(e_list_old)
+        quit()
+
+    e_list_new2 = events.EventList([], datetime.datetime.today())
+    for event in e_list_new2:
+        obs = stations.StationSet(event.stations)
+        set_obs = obs.getSet()
+        for i in set_obs:
+            try:
+                dp1_peak = data.createFromTime(event.time_start, station=i[0], extent=False)
+                dp2_peak = data.createFromTime(event.time_start, station=i[1], extent=False)
+                if dp1_peak.spectrum_data is None or dp2_peak.spectrum_data is None:
+                    continue
+                # m1 = analysis.maskBadFrequencies(dp1_peak)
+                # m2 = analysis.maskBadFrequencies(dp2_peak)
+                # dp1_peak.spectrum_data.data[m1,:] = 0
+                # dp2_peak.spectrum_data.data[m2,:] = 0
+                dp1_peak.createSummedCurve()
+                dp2_peak.createSummedCurve()
+                dp1_peak.flattenSummedCurve()
+                dp2_peak.flattenSummedCurve()
+                dp1_peak.subtractBackground()
+                dp2_peak.subtractBackground()
+                event_peaks = analysis.peaksInData(dp1_peak, dp2_peak)
+                if event.inList(event_peaks):
+                    dp1, dp2, cor = analysis.calcPoint(event.time_start, obs1=i[0], obs2=i[1], mask_frq=True,
+                                                       r_window=30,
+                                                       flatten=True, bin_time=True, bin_freq=False, no_bg=True,
+                                                       flatten_window=4, bin_time_width=None, limit=0.8)
+                    if dp1 is None:
+                        continue
+                    for peak in cor.peaks:
+                        if peak.inList(event_peaks):
+                            e_list_new2 += peak
+                        else:
+                            pass
+            except FileNotFoundError:
+                continue
+            except AttributeError:
+                continue
+
+    if not e_list_new2:
+        saveRealTime(e_list_old)
+        saveRealtimeTxt(e_list_old)
+        quit()
+
+    e_list_new3 = events.EventList([], datetime.datetime.today())
+    limit_1 = 0.90
+    limit_2 = 0.95
+
+    for i in e_list_new2:
+        if i.probability < limit_1:
+            continue
+        peak_list = events.EventList([], datetime.datetime.today())
+        obs = stations.StationSet(i.stations)
+        set_obs = obs.getSet()
+        for j in set_obs:
+            d1 = data.createFromTime(i.time_start, station=j[0], extent=False)
+            d2 = data.createFromTime(i.time_start, station=j[1], extent=False)
+            d1.createSummedCurve()
+            d2.createSummedCurve()
+            d1.flattenSummedCurve()
+            d2.flattenSummedCurve()
+            d1.subtractBackground()
+            d2.subtractBackground()
+            ev = analysis.peaksInData(d1, d2, peak_limit=3)
+            peak_list += ev
+        if not peak_list and i.probability < limit_2:
+            pass
+        else:
+            e_list_new3 += i
+
+    if not e_list_new3:
+        saveRealTime(e_list_old)
+        saveRealtimeTxt(e_list_old)
+        quit()
+
+    e_list = e_list_old + e_list_new3
+    saveRealTime(e_list)
+    saveRealtimeTxt(e_list)
 
 
 """

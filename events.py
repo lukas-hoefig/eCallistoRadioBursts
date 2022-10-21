@@ -17,8 +17,8 @@ BURST_TYPE_UNKNOWN = "???"
 
 
 def header():
-    return f"# Product: e-CALLISTO automated search\n"\
-           f"# Please send comments and suggestions to lukas.hoefig.edu.uni-graz.at\n"\
+    return f"# Product: e-CALLISTO automated search by ROBUST\n"\
+           f"# Please send comments and suggestions regarding ROBUST to lukas.hoefig.edu.uni-graz.at\n"\
            f"#     or for general questions, comments or suggestions: christian.monstein(at)irsol.usi.ch\n"\
            f"# Missing data: ##:##-##:##\n" \
            f"#\n"\
