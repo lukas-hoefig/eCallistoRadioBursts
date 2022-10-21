@@ -243,7 +243,7 @@ class DataPoint:
         self.summed_curve = [np.nansum(self.spectrum_data.data.transpose()[time][freq_high:freq_low + 1]) for time
                              in range(self.number_values)]
 
-    def subtract_background(self):
+    def subtractBackground(self):
         if self.background_subtracted:
             return
         self.spectrum_data = self.spectrum_data.subtract_bg()
@@ -442,7 +442,6 @@ def listDataPointDay(*date, station: stations.Station):
 
     if date_ahead_relevant and date_behind_relevant:
         date_ahead_relevant = [date_ahead_relevant[-1]]
-
         frq_profile_1st = frqProfile(date_ahead_list)
         frq_profile_2nd = frqProfile(day_list)
         if frq_profile_1st == frq_profile_2nd:

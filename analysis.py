@@ -28,7 +28,7 @@ mask_frq_limit = 1.5
 def maskBadFrequencies(datapoint: Union[data.DataPoint, np.ndarray], limit=mask_frq_limit):
     if isinstance(datapoint, data.DataPoint):
         dpt = copy.deepcopy(datapoint)
-        dpt.subtract_background()
+        dpt.subtractBackground()
         data_ = dpt.spectrum_data.data
     elif isinstance(datapoint, np.ndarray):
         data_ = datapoint
@@ -97,7 +97,7 @@ def calcPoint(*date, obs1: stations.Station, obs2: stations.Station, data_point_
     if no_bg is None:
         no_bg = True
     if r_window is None:
-        r_window = int(correlation.default_r_window/correlation.default_time_window)
+        r_window = int(correlation.default_r_window / correlation.default_time_window)
     if bin_time_width is None:
         bin_time_width = correlation.default_time_window
     if method_bin_t is None:
@@ -137,10 +137,13 @@ def calcPoint(*date, obs1: stations.Station, obs2: stations.Station, data_point_
     data_point_2.createSummedCurve()
     data_point_1.flattenSummedCurve(rolling_window=correlation.default_flatten_window)
     data_point_2.flattenSummedCurve(rolling_window=correlation.default_flatten_window)
+    if no_bg:
+        data_point_1.subtractBackground()
+        data_point_2.subtractBackground()
     return data_point_1, data_point_2, cor
 
 
-def plotDatapoint(datapoint: data.DataPoint):
+def plotDatapoint(datapoint: data.DataPoint):   # TODO longer timeframes -> xticks
     t = np.arange(datapoint.spectrum_data.start.strftime("%Y-%m-%dT%H:%M:%S.%z"),
                   datapoint.spectrum_data.end.strftime("%Y-%m-%dT%H:%M:%S.%z"), dtype='datetime64[s]').astype(datetime)
     mt = mdates.date2num((t[0], t[-1]))
@@ -396,8 +399,8 @@ def getEvents(*args, mask_frq=None, r_window=None,
 
 def filename(*date, step: int):
     date_ = config.getDateFromArgs(*date)
-    return config.path_data + f"results/{date_.year}/{date_.month:02}/" + \
-                             f"{date_.year}_{date_.month:02}_{date_.day:02}_step{step}"
+    return config.path_results + f"{date_.year}/{date_.month:02}/" + \
+                                 f"{date_.year}_{date_.month:02}_{date_.day:02}_step{step}"
 
 
 def saveData(*date, step: int, event_list: events.EventList):

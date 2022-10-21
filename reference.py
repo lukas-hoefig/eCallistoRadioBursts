@@ -100,7 +100,7 @@ def listMonstein(*date):
                 _observatories = []
                 for i in _stations:
                     try:
-                        _observatories.append(stations.Station(i))        
+                        _observatories.append(stations.Station(i))        # TODO - where from
                     except KeyError:
                         pass
                 event = events.Event(_time_start, end_time=_time_end, stations=_observatories, burst_type=_type)

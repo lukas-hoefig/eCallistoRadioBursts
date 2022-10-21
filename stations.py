@@ -69,6 +69,9 @@ class Station:
 
 
 class StationSet:
+    """
+    TODO could be a single function
+    """
     def __init__(self, stations: List[Station]):
         self.stations = stations
 
@@ -107,7 +110,7 @@ def listFilesDay(url: str):
     """
     page = urllib.request.urlopen(url).read()
     soup = BeautifulSoup(page, 'html.parser')
-    return [node.get('href') for node in soup.find_all('a') if node.get('href').endswith('.fit.gz')]
+    return [node.get('href') for node in soup.find_all('a') if node.get('href').endswith(config.file_type_zip)]
 
 
 def listFD(url: str, station: List[str]):
@@ -119,7 +122,7 @@ def listFD(url: str, station: List[str]):
     soup = BeautifulSoup(page, 'html.parser')
 
     return [url + '/' + node.get('href') for node in soup.find_all('a')
-            if node.get('href').startswith(station[0]) and node.get('href').endswith(station[1] + '.fit.gz')]
+            if node.get('href').startswith(station[0]) and node.get('href').endswith(station[1] + config.file_type_zip)]
 
 
 def getStations(*date):

@@ -18,8 +18,8 @@ LENGTH_TYPE_III_AVG = 120    # TODO definition type II / III -> const | * 4 for 
 TYPE_III = "III"
 TYPE_II = " II"
 TYPE_IV = " IV"
-TYPE_UNKNOWN = "???"
-BURST_TYPE_UNKNOWN = events.BURST_TYPE_UNKNOWN
+TYPE_UNKNOWN = "???"                                    # TODO
+BURST_TYPE_UNKNOWN = events.BURST_TYPE_UNKNOWN          # TODO
 default_time_window = 4
 default_flatten_window = 2000
 default_r_window = 180
@@ -217,6 +217,9 @@ class Correlation:
                                           (self.data_point_2.spectrum_data.end - self.data_point_2.spectrum_data.start)
                                           .total_seconds(), 2)
 
+        if self.no_background:
+            self.data_point_1.subtractBackground()
+            self.data_point_2.subtractBackground()
         if self.bin_time:
             self.data_point_1.binDataTime(width=self.bin_time_width, method=self.method_bin_t)
             self.data_point_2.binDataTime(width=self.bin_time_width, method=self.method_bin_t)

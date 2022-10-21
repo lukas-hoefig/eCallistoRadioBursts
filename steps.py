@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from datetime import timedelta
 import copy
 import numpy as np
-import sys
+
 import warnings
 
 import download
@@ -21,14 +20,14 @@ def run1stSearch(*date, mask_frq=False, nobg=True, bin_f=False, bin_t=False,
     date_ = config.getDateFromArgs(*date)
     limit = 0.6
 
-    print(f"{date_.year} {date_.month:02} {date_.day:02}")
+    print(f"starting 1st Step: {date_.year} {date_.month:02} {date_.day:02}")
     observatories = stations.getStations(date_)
     print(len(observatories), "observatories found")
     download.downloadFullDay(date_, station=observatories)
     sets = []
     for j in observatories:
         sets.extend(data.listDataPointDay(date_, station=j))
-    perm_abs = int(len(sets)*(len(sets)-1)/2)
+    perm_abs = int(len(sets) * (len(sets) - 1) / 2)
     perm = perm_abs + 1
     print(perm_abs, "permutations to go")
     e_list = events.EventList([], date_)
@@ -40,7 +39,7 @@ def run1stSearch(*date, mask_frq=False, nobg=True, bin_f=False, bin_t=False,
             data1 = sum(data1_raw)
             data2 = sum(data2_raw)
             if data1 and data2:
-                print(perm, "/", perm_abs, data1.observatory, data2.observatory)
+                print(f"{perm:6} / {perm_abs:6} | {data1.observatory} {data2.observatory}                   ", end="\r")
                 if mask_frq:
                     mask1 = analysis.maskBadFrequencies(data1)
                     mask2 = analysis.maskBadFrequencies(data2)
@@ -75,10 +74,10 @@ def run2ndSearch(*date, mask_freq=True, no_bg=True, bin_f=False, bin_t=True, fla
 
     num_events = len(events_day)
     current = 0
-    print(f"{date_.year} {date_.month:02} {date_.day:02}, {num_events} events to go")
+    print(f"Starting 2nd Step\n{date_.year} {date_.month:02} {date_.day:02}, {num_events} events to go")
     for event in events_day:
         current += 1
-        print(f"{current:4}/{num_events:4}", event)
+        print(f"{current:4} / {num_events:4} | {event}", end="\r")
         obs = stations.StationSet(event.stations)
         set_obs = obs.getSet()
         for i in set_obs:
@@ -96,6 +95,8 @@ def run2ndSearch(*date, mask_freq=True, no_bg=True, bin_f=False, bin_t=True, fla
                 dp2_peak.createSummedCurve()
                 dp1_peak.flattenSummedCurve()
                 dp2_peak.flattenSummedCurve()
+                dp1_peak.subtractBackground()
+                dp2_peak.subtractBackground()
                 event_peaks = analysis.peaksInData(dp1_peak, dp2_peak)
                 if event.inList(event_peaks):
                     dp1, dp2, cor = analysis.calcPoint(event.time_start, obs1=i[0], obs2=i[1], mask_frq=mask_freq,
@@ -124,7 +125,7 @@ def run3rdSearch(*date):
     e_list = events.EventList([], date_)
     limit_1 = 0.90
     limit_2 = 0.95
-    print(f"{date_.year} {date_.month:02} {date_.day:02}")
+    print(f"Starting 3rd Step\n{date_.year} {date_.month:02} {date_.day:02}")
     for i in events_day:
         if i.probability < limit_1:
             continue
@@ -138,7 +139,9 @@ def run3rdSearch(*date):
             d2.createSummedCurve()
             d1.flattenSummedCurve()
             d2.flattenSummedCurve()
-            ev = analysis.peaksInData(d1,d2, peak_limit=3)
+            d1.subtractBackground()
+            d2.subtractBackground()
+            ev = analysis.peaksInData(d1, d2, peak_limit=3)
             peak_list += ev
         if not peak_list and i.probability < limit_2:
             pass
