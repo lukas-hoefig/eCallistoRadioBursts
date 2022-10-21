@@ -84,11 +84,14 @@ def downloadFtpNewFiles(path: str):
 
 def getFilesFromExtern(observatories=None):
     if observatories is None:
-        observatories = ["AUSTRIA-UNIGRAZ", "AUSTRIA-OE3FLB", "SWISS-Landschlacht"]
+        observatories = ["AUSTRIA-UNIGRAZ", "AUSTRIA-OE3FLB", "SWISS-Landschlacht", "BIR", "HUMAIN", "ALASKA-HAARP",
+                         "ALASKA-COHOE", "GLASGOW", "Australia-ASSA", "ROSWELL-NM", "ALMATY", "Arecibo-Observatory",
+                         "INDONESIA", "TRIEST"]
     path_dl = config.pathDataDay(datetime.datetime.today())
     # downloadFtpNewFiles(path_dl)    <--- finally
     # nextcloud.downloadFromCloud(token_download, path=path_dl)
-    download.downloadFullDay(datetime.datetime.today(), station=observatories)
+    # download.downloadFullDay(datetime.datetime.today(), station=observatories)
+    download.downloadLastHours(observatories)
     # nextcloud.unzip(path_dl)
 
 
@@ -187,7 +190,7 @@ if __name__ == "__main__":
             # data1.spectrum_data.data[mask1] = np.nanmean(data1.spectrum_data.data)
             # data2.spectrum_data.data[mask2] = np.nanmean(data2.spectrum_data.data)
             corr = correlation.Correlation(data_1, data_2, today.day, no_background=True, bin_freq=False,
-                                           bin_time=False, flatten=True, bin_time_width=None,
+                                           bin_time=False, flatten=True, bin_time_width=4,
                                            flatten_window=None, r_window=180)
             corr.calculatePeaks(limit=.6)
             try:

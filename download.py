@@ -27,9 +27,9 @@ def downloadFullDay(*date: Union[datetime.datetime, int],
     station = copy.deepcopy(station)
     if not isinstance(station, list):
         station = [station]
-    for i in range(len(station)):
-        if isinstance(station[i], stations.Station):
-            station[i] = station[i].name
+    for i, j in enumerate(station):
+        if isinstance(j, stations.Station):
+            station[i] = j.name
 
     year = date_.year
     month = date_.month
@@ -58,6 +58,37 @@ def downloadFullDay(*date: Union[datetime.datetime, int],
             createLog(date_, station=station, _overwrite=False)
         else:
             createLog(date_, station=station)
+
+
+def downloadLastHours(station: Union[str, stations.Station, List[Union[str, stations.Station]]]):
+    if not isinstance(station, list):
+        station = [station]
+    for i, j in enumerate(station):
+        if isinstance(j, stations.Station):
+            station[i] = j.name
+
+    now = datetime.datetime.now()
+    start = now - datetime.timedelta(hours=4)
+    if now.day == start.day:
+        download_path = config.pathDataDay(start)
+        if not os.path.exists(download_path):
+            os.makedirs(download_path)
+        url_list = cal.query(start, now, station)
+        cal.download(url_list, download_path)
+    else:
+        dl_path_1 = config.pathDataDay(start)
+        end_1 = datetime.datetime(start.year, start.month, start.day, 23, 59)
+        start_2 = datetime.datetime(now.year, now.month, now.day)
+        dl_path_2 = config.pathDataDay(now)
+        if not os.path.exists(dl_path_1):
+            os.makedirs(dl_path_1)
+        url_list = cal.query(start, end_1, station)
+        cal.download(url_list, dl_path_1)
+
+        if not os.path.exists(dl_path_2):
+            os.makedirs(dl_path_2)
+        url_list = cal.query(start_2, now, station)
+        cal.download(url_list, dl_path_2)
 
 
 def createLog(*date: datetime.datetime, station: List[str], _overwrite=True):
