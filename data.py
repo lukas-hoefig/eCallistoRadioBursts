@@ -29,13 +29,14 @@ class DataPoint:
     """
     """
 
-    def __init__(self, file: str):
+    def __init__(self, file: str, debug=False):
         self.spectrum_data = None
         self.number_values = None
         self.summed_curve = []
         self.binned_freq = False
         self.binned_time = False
         self.binned_time_width = 1
+        self.points_per_second = config.DATA_POINTS_PER_SECOND
         self.background_subtracted = False
         self.flattened = False
         self.flattened_window = 1
@@ -60,6 +61,9 @@ class DataPoint:
         if not self:
             return
         self.cleanUpData()
+
+        if not debug:
+            self.plausibleDataCheck()
 
     def __add__(self, other):
         """
@@ -118,7 +122,11 @@ class DataPoint:
             except TypeError:
                 self.spectrum_data = None
                 return
-        self.number_values = len(self.spectrum_data.time_axis)
+        self.number_values = min(self.spectrum_data.data.shape[1], len(self.spectrum_data.time_axis))
+        self.points_per_second = self.number_values / (self.spectrum_data.end - self.spectrum_data.start).total_seconds()
+        self.binned_time_width = np.around(config.DATA_POINTS_PER_SECOND / self.points_per_second, 0)
+        if self.binned_time_width != 1:
+            self.binned_time = True
 
     def readFalseDateFile(self):
         file_open = fits.open(self.path + self.file_name)
@@ -151,7 +159,7 @@ class DataPoint:
 
     def cleanUpData(self):
         """
-        cleans up multiple data entries in frequency range
+        cleans up multiple broken data entries in frequency range
         called by __init__
         """
         self.spectrum_data.data = self.spectrum_data.data[
@@ -194,33 +202,51 @@ class DataPoint:
         self.binned_freq = True
 
     def binDataTime(self, width=BIN_FACTOR, method='median'):
-        if method != 'median' and method != 'mean':
-            raise Exception
+        if self.binned_time:
+            if self.binned_time_width >= width:
+                return
+            elif width/self.binned_time_width == int(width/self.binned_time_width):
+                new_width = int(np.around(width/self.binned_time_width, 0))
+            else:
+                raise ValueError("please don't bin weird values, and avoid binning binned data if possible")
+        else:
+            new_width = int(np.around(width, 0))
         time_min = self.spectrum_data.time_axis[0]
         time_max = self.spectrum_data.time_axis[-1]
         data = self.spectrum_data.data
-        time_range = np.arange(time_min, time_max, width / DATA_POINTS_PER_SECOND)
-
-        entries_per_bin = len(self.spectrum_data.time_axis) / len(time_range)
-        data_binned = [[] for i in range(len(data))]
+        new_data_per_second = self.points_per_second / new_width
+        time_range = np.arange(time_min, time_max, 1 / new_data_per_second)
 
         if method == 'median':
-            for line in range(len(data)):
-                for bin_ in range(len(time_range)):
-                    data_binned[line].append(
-                        np.nanmedian(data[line][int(bin_ * entries_per_bin):int((bin_ + 1) * entries_per_bin)]))
-        if method == 'mean':
-            for line in range(len(data)):
-                for bin_ in range(len(time_range)):
-                    data_binned[line].append(
-                        np.nanmean(data[line][int(bin_ * entries_per_bin):int((bin_ + 1) * entries_per_bin)]))
+            data_binned = np.array([pd.Series(data[i]).rolling(new_width).median() for i in range(data.shape[0])])
+            # for line in range(len(data)):
+            #     for bin_ in range(len(time_range)):
+            #         data_binned[line].append(
+            #             np.nanmedian(data[line][int(bin_ * entries_per_bin):int((bin_ + 1) * entries_per_bin)]))
+        elif method == 'mean':
+            data_binned = np.array([pd.Series(data[i]).rolling(new_width).mean() for i in range(data.shape[0])])
+            # for line in range(len(data)):
+            #     for bin_ in range(len(time_range)):
+            #         data_binned[line].append(
+            #             np.nanmean(data[line][int(bin_ * entries_per_bin):int((bin_ + 1) * entries_per_bin)]))
+        else:
+            raise Exception
 
-        self.spectrum_data.data = np.array(data_binned)
+        data_binned_cut = data_binned[:, (new_width - 1)::new_width]
+        cut_out_num = data.shape[1] % 4
+        if cut_out_num:
+            data_binned_append = np.array([np.nanmedian([data[i, -cut_out_num:]]) for i in range(data.shape[0])])
+            self.spectrum_data.data = np.c_[data_binned_cut, data_binned_append]
+        else:
+            self.spectrum_data.data = data_binned_cut
+
+        time_range = time_range[:self.spectrum_data.data.shape[1]]
 
         self.spectrum_data.time_axis = time_range
         self.binned_time = True
         self.binned_time_width = width
-        self.number_values = len(self.spectrum_data.time_axis)
+        self.points_per_second = new_data_per_second
+        self.number_values = min(self.spectrum_data.data.shape[1], len(self.spectrum_data.time_axis))
 
     def plot(self):  # TODO if none - skip
         """
@@ -228,7 +254,7 @@ class DataPoint:
         """
         self.spectrum_data.peek()
 
-    def createSummedCurve(self, frequency_range=None):
+    def createSummedCurve(self, frequency_range=None, debug=False):
         """
         creates summed up curve
         """
@@ -242,6 +268,21 @@ class DataPoint:
 
         self.summed_curve = [np.nansum(self.spectrum_data.data.transpose()[time][freq_high:freq_low + 1]) for time
                              in range(self.number_values)]
+        
+        if not debug:
+            curve = np.array(self.summed_curve)
+            max_curve = np.nanmax(curve)
+            mask = np.array([(i < 0) and (abs(i)>2*max_curve) for i in curve])
+            curve[mask] = np.nanmedian(curve)
+            self.summed_curve = curve.tolist()
+
+    def plausibleDataCheck(self):
+        self.createSummedCurve()
+        self.flattenSummedCurve()
+        max_values = np.argwhere(self.summed_curve > np.nanmax(self.summed_curve) * 0.98)
+        if len(max_values) > (self.number_values / 35):
+            self.spectrum_data = None
+        self.summed_curve = []
 
     def subtractBackground(self):
         if self.background_subtracted:
@@ -261,22 +302,28 @@ class DataPoint:
         self.flattened = True
 
     def plotSummedCurve(self, ax, peaks=None, label=None, color=None):
-        plotCurve(self.spectrum_data.time_axis, self.summed_curve, self.spectrum_data.start.timestamp(),
-                  self.binned_time, self.binned_time_width, ax, peaks=peaks, new_ax=True, label=label, color=color)
+        return plotCurve(self.spectrum_data.time_axis, self.summed_curve, self.spectrum_data.start.timestamp(),
+                         self.binned_time, self.binned_time_width, ax, peaks=peaks, new_ax=True, label=label, color=color)
 
     def fileName(self):
         return f"{self.year}_{self.month:02}_{self.day:02}_{self.observatory}" \
                f"{['', '_nobg'][self.background_subtracted]}" \
                f"{['', '_binfreq'][self.binned_freq]}" \
-               f"{['', '_bintime_{}'.format(self.binned_time_width)][self.binned_time]}" \
-               f"{['', '_flatten_{}'.format(self.flattened_window)][self.flattened]}.png"
+               f"{['', f'_bintime_{self.binned_time_width}'][self.binned_time]}" \
+               f"{['', f'_flatten_{self.flattened_window}'][self.flattened]}.png"
 
     def dateTime(self):
         return datetime(year=self.year, month=self.month, day=self.day,
                         hour=self.hour, minute=self.minute, second=self.second)
 
+    def cutToTime(self, start=None, end=None):
+        """
+        TODO
+        """
+        pass
 
-def createDayList(*date, station: Union[stations.Station, str]) -> List[DataPoint]:
+
+def createDayList(*date, station: Union[stations.Station, str], debug=False) -> List[DataPoint]:
     """
     Creates a list with DataPoints for a specific day for a Observatory with a specific spectral range
 
@@ -304,7 +351,7 @@ def createDayList(*date, station: Union[stations.Station, str]) -> List[DataPoin
 
     for file in files_observatory:
         try:
-            data_day.append(DataPoint(file))
+            data_day.append(DataPoint(file, debug=debug))
         except TypeError:
             # corrupt file
             pass
@@ -318,11 +365,11 @@ def createDayList(*date, station: Union[stations.Station, str]) -> List[DataPoin
     return data_day_return
 
 
-def createDay(*date, station: Union[stations.Station, str]) -> DataPoint:
-    return sum(createDayList(*date, station=station))
+def createDay(*date, station: Union[stations.Station, str], debug=False) -> DataPoint:
+    return sum(createDayList(*date, station=station, debug=debug))
 
 
-def createFromTime(*date, station: Union[stations.Station, str], extent=True) -> DataPoint:
+def createFromTime(*date, station: Union[stations.Station, str], extent=True, debug=False) -> DataPoint:
     date_ = config.getDateFromArgs(*date)
 
     if isinstance(station, str):
@@ -346,21 +393,22 @@ def createFromTime(*date, station: Union[stations.Station, str], extent=True) ->
         second = int(time_read[4:])
         time_file = hour * 3600 + minute * 60 + second
         time_diff = time_target - time_file
-
-        if time_diff < 15 * 60:
-            dp0 = DataPoint(file)
+        if 0 <= time_diff < 15 * 60:
+            dp0 = DataPoint(file, debug=debug)
             dp = dp0
             if extent and i and ((date_.minute * 60 + date_.second) - (minute * 60 + second) < (5 * 60)):
-                dp_ahead = DataPoint(files_filtered[i - 1])
-                dp = dp_ahead + dp0
+                dp_ahead = DataPoint(files_filtered[i - 1], debug=debug)
+                if dp_ahead.spectrum_data is not None and frqProfile(dp) == frqProfile(dp_ahead):
+                    dp = dp_ahead + dp0
             if extent and i + 1 < len(files_filtered) and (((date_.minute * 60 + date_.second) - (minute * 60 + second)) > (10 * 60)):
-                dp_after = DataPoint(files_filtered[i + 1])
-                dp = dp0 + dp_after
+                dp_after = DataPoint(files_filtered[i + 1], debug=debug)
+                if dp_after.spectrum_data is not None and frqProfile(dp) == frqProfile(dp_after):
+                    dp = dp0 + dp_after
             return dp
     raise FileNotFoundError("No file for the specified time and station found.")
 
 
-def createFromEvent(event: events.Event, station=None):
+def createFromEvent(event: events.Event, station=None, debug=False, extent=True):
     """
     TODO 
     """
@@ -373,33 +421,54 @@ def createFromEvent(event: events.Event, station=None):
     else:
         obs = event.stations[0]
 
-    dp = createFromTime(time_start, station=obs)  # TODO this crashes -> whole thing as datetime, Events->datetime
+    dp = createFromTime(time_start, station=obs, debug=debug, extent=True)
     i = 1
-    while dp.spectrum_data.end < time_end:
+    while dp.spectrum_data.end < time_end and dp.spectrum_data.header is not None:
         new_time = time_start + timedelta(minutes=config.LENGTH_FILES_MINUTES * i)
-        dp += createFromTime(new_time, station=obs)
+        try:
+            dp_close = createFromTime(new_time, station=obs, debug=debug, extent=False)
+            if dp_close.spectrum_data.header is not None and frqProfile(dp) == frqProfile(dp_close):
+                dp += dp_close
+        except FileNotFoundError:
+            pass
         i += 1
+        if i > 3:
+            break
     
-    if (event.time_start - event.time_end).total_seconds() < 20:
-        delta = 10
+    if not extent:
+        if (event.time_start - event.time_end).total_seconds() < 20:
+            delta = timedelta(seconds=10)
+        else:
+            delta = timedelta(seconds=1)
     else:
-        delta = 0
-    del_start = int((event.time_start - dp.spectrum_data.start - timedelta(seconds=delta)).total_seconds()
-                    * config.DATA_POINTS_PER_SECOND)
-    del_end = int((event.time_end - dp.spectrum_data.start + timedelta(seconds=delta)).total_seconds()
-                  * config.DATA_POINTS_PER_SECOND)
+        delta = timedelta(minutes=3)
+    
+    del_start = int((event.time_start - dp.spectrum_data.start - delta).total_seconds()
+                    * dp.points_per_second)
+    del_end = int((event.time_end - dp.spectrum_data.start + delta).total_seconds()
+                  * dp.points_per_second)
+    
+    dp.spectrum_data.end = event.time_end + delta
+    dp.spectrum_data.start = event.time_start - delta
+    
     if del_start < 0:
         del_start = 0
     dp.spectrum_data.data = dp.spectrum_data.data[:, del_start:del_end]
-    dp.spectrum_data.start = event.time_start
-    
+    dp.spectrum_data.time_axis = np.arange(0,dp.spectrum_data.shape[1]/dp.points_per_second, 1/dp.points_per_second)
+    dp.number_values = min(dp.spectrum_data.data.shape[1], len(dp.spectrum_data.time_axis))
+
+    if len(dp.spectrum_data.time_axis) < config.ROLL_WINDOW / config.BIN_FACTOR * 10:
+        dp.spectrum_data = None
+
     return dp
 
 
-def frqProfile(_list: List[DataPoint]):
+def frqProfile(_list: Union[DataPoint, List[DataPoint]]):
     """
     most frequent freq id of a list of datapoints
     """
+    if isinstance(_list, DataPoint):
+        _list = [_list]
     fa = [i.spectrum_data.header["FRQFILE"] for i in _list]
     fsets = set(fa)
     count = [fa.count(i) for i in fsets]
@@ -497,24 +566,16 @@ def fitTimeFrameDataSample(_data_point1, _data_point2):
     return data_merged1, data_merged2
 
 
-#
-# TODO: obsolete?
-#       ||
-#       ||
-#      \  /
-#       v
-
-
 def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, axis, _plot=True, peaks=None, new_ax=False,
               label=None, color=None):
     """
     TODO: rewrite peaks -> events.Event | events.EventList
     """
     plotCurve.curve += 1
-    if _bin_time:
-        data_per_second = DATA_POINTS_PER_SECOND / _bin_time_width                                  # TODO
-    else:
-        data_per_second = DATA_POINTS_PER_SECOND
+    #if _bin_time:
+    #    data_per_second = DATA_POINTS_PER_SECOND / _bin_time_width                                  # TODO
+    #else:
+    #    data_per_second = DATA_POINTS_PER_SECOND
     time_axis_plot = []
     for i in _time:
         time_axis_plot.append(

@@ -42,9 +42,10 @@ def listSWPC(*date):
             lines[line].remove('+')
         except ValueError:
             pass
-
-    lines = list(filter(lambda i: i[6] == 'RSP' and not i[8].startswith('CTM'), lines))
-
+    try:
+        lines = list(filter(lambda i: i[6] == 'RSP' and not i[8].startswith('CTM'), lines))
+    except IndexError:
+        return events.EventList([], date_)
     references = []
     for line in lines:
         start_hour = int(line[1][:2])

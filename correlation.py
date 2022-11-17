@@ -10,19 +10,19 @@ import events
 import data
 import config
 
-CORRELATION_MIN = 0.8
-CORRELATION_PEAK_END = 0.25
+CORRELATION_MIN = config.correlation_limit_2
+CORRELATION_PEAK_END = config.correlation_end
 DATA_POINTS_PER_SECOND = config.DATA_POINTS_PER_SECOND
 BIN_FACTOR = config.BIN_FACTOR
-LENGTH_TYPE_III_AVG = 120    # TODO definition type II / III -> const | * 4 for seconds ?
+LENGTH_TYPE_III_AVG = 120    # TODO definition type II / III | seconds ?
 TYPE_III = "III"
 TYPE_II = " II"
 TYPE_IV = " IV"
 TYPE_UNKNOWN = "???"                                    # TODO
 BURST_TYPE_UNKNOWN = events.BURST_TYPE_UNKNOWN          # TODO
-default_time_window = 4
+default_time_window = config.BIN_FACTOR
 default_flatten_window = 2000
-default_r_window = 180
+default_r_window = config.ROLL_WINDOW
 
 
 class Correlation:
@@ -54,7 +54,10 @@ class Correlation:
         self.bin_time = bin_time
         self.flatten = flatten
         self.flatten_window = flatten_window
-        self.bin_time_width = bin_time_width
+        if bin_time_width is None:
+            self.bin_time_width = 1
+        else:
+            self.bin_time_width = bin_time_width
         self.r_window = r_window
         self.method_bin_f = method_bin_f
         self.method_bin_t = method_bin_t
@@ -62,7 +65,12 @@ class Correlation:
         self.peaks = events.EventList([], self.date)
         self.frequency_range = None
         self.time_axis = None
-        self.time_start = None
+        time_start_1 = self.data_point_1.spectrum_data.start.timestamp()
+        time_start_2 = self.data_point_2.spectrum_data.start.timestamp()
+        time_end_1 = self.data_point_1.spectrum_data.end.timestamp()
+        time_end_2 = self.data_point_2.spectrum_data.end.timestamp()
+        self.time_start = max(time_start_2, time_start_1)
+        self.time_end = min(time_end_2, time_end_1)
         self.time_start_delta = None
         self.data_curve = None
         self.data_per_second = [DATA_POINTS_PER_SECOND,
@@ -86,9 +94,11 @@ class Correlation:
         elif delta_t_start and self.data_point_1.spectrum_data.start > self.data_point_2.spectrum_data.start:
             curve2 = curve2[int(self.data_per_second_2 * abs(delta_t_start)):]
 
-        if delta_t_end and self.data_point_1.spectrum_data.end > self.data_point_2.spectrum_data.end:
+        if delta_t_end and self.data_point_1.spectrum_data.end > self.data_point_2.spectrum_data.end and \
+                int(self.data_per_second_1 * abs(delta_t_end)):
             curve1 = curve1[:-int(self.data_per_second_1 * abs(delta_t_end))]
-        elif delta_t_end and self.data_point_1.spectrum_data.end < self.data_point_2.spectrum_data.end:
+        elif delta_t_end and self.data_point_1.spectrum_data.end < self.data_point_2.spectrum_data.end and \
+                int(self.data_per_second_2 * abs(delta_t_end)) > 0:
             curve2 = curve2[:-int(self.data_per_second_2 * abs(delta_t_end))]
 
         if self.data_per_second_1 < self.data_per_second_2:
@@ -103,12 +113,17 @@ class Correlation:
 
     def calculatePeaks(self, limit=CORRELATION_MIN):
         within_burst = False
+        high_correlation = False
         peaks = []
         if self.data_point_1.observatory == self.data_point_2.observatory:
             return
+        time_start = datetime.fromtimestamp(self.time_start)
         for point in range(len(self.data_curve)):
-            if self.data_curve[point] > limit and not within_burst:
+            if self.data_curve[point] > config.correlation_start and not within_burst and not high_correlation:
                 time_start = datetime.fromtimestamp(point / self.data_per_second + self.time_start)
+                high_correlation = True
+
+            if self.data_curve[point] > limit and not within_burst:
                 burst = events.Event(time_start, probability=self.data_curve[point],
                                      stations=[self.data_point_1.observatory, self.data_point_2.observatory])
                 if burst.time_start.day == self.day:
@@ -126,8 +141,10 @@ class Correlation:
                         timedelta(seconds=LENGTH_TYPE_III_AVG).total_seconds():
                     peaks[-1].burst_type = TYPE_III
                 else:
-                    peaks[-1].burst_type = TYPE_II
+                    peaks[-1].burst_type = TYPE_UNKNOWN
                 within_burst = False
+            if self.data_curve[point] < config.correlation_start:
+                high_correlation = False
 
         if peaks:
             if peaks[-1].burst_type == BURST_TYPE_UNKNOWN:  # TODO
@@ -193,12 +210,6 @@ class Correlation:
 
     def calculateTimeAxis(self):
         data_per_second = max(self.data_per_second_1, self.data_per_second_2)
-        time_start_1 = self.data_point_1.spectrum_data.start.timestamp()
-        time_start_2 = self.data_point_2.spectrum_data.start.timestamp()
-        if time_start_2 > time_start_1:
-            self.time_start = time_start_2
-        else:
-            self.time_start = time_start_1
         self.time_axis = [i / data_per_second for i in range(len(self.data_curve))]
 
     def setupSummedCurves(self):
@@ -225,6 +236,7 @@ class Correlation:
             self.data_point_2.binDataTime(width=self.bin_time_width, method=self.method_bin_t)
             self.data_per_second_1 = self.data_per_second_1 / self.bin_time_width
             self.data_per_second_2 = self.data_per_second_2 / self.bin_time_width
+            self.time_axis = np.arange(self.time_start, self.time_end, self.bin_time_width / self.data_per_second)
         if self.bin_frequency:
             self.data_point_1.binDataFreq(method=self.method_bin_f)
             self.data_point_2.binDataFreq(method=self.method_bin_f)

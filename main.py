@@ -5,7 +5,7 @@ import datetime
 import sys
 
 import steps
-
+import analysis
 
 if __name__ == '__main__':
     """
@@ -16,15 +16,20 @@ if __name__ == '__main__':
     if input_arg and len(input_arg) > 2:
         for i, j in enumerate(input_arg[1:]):
             args[i] = int(j)
-    
-    date_start = datetime.datetime(args[0],args[1],args[2])
+
+    date_start = datetime.datetime(args[0], args[1], args[2])
 
     for i in range(0, args[3]):
-        date = date_start + datetime.timedelta(i)
-        steps.run1stSearch(date, mask_frq=True)
-        steps.run2ndSearch(date)
-        steps.run3rdSearch(date)
-
+        date = date_start + datetime.timedelta(days=i)
+        data_raw = steps.dataSetDay(date)
+        data_step_1 = steps.firstStep(date, data_sets=data_raw, mask_frq=True)
+        analysis.saveData(date, event_list=data_step_1, step=1)
+        data_step_2 = steps.secondStep(None, date)
+        analysis.saveData(date, event_list=data_step_2, step=2)
+        data_step_3 = steps.thirdStep(None, date)
+        analysis.saveData(date, event_list=data_step_3, step=3)
+        data_step_4 = steps.fourthStep(None, date)
+        analysis.saveData(date, event_list=data_step_4, step=4)
 
 # 31.01 18:11 why?
 """
@@ -73,17 +78,16 @@ if __name__ == '__main__':
 
    andere ecallisto auswertungen -> type 3
    warum/wie/welche werte setzen -> i.e. binsize -> ___statistics___ 
-   
+
    ordner -> test files -> known bursts, empties, type 2/3 overlay (anfang november 21), gewitter
    background remove -> yes/no, why - does it get better? 
-   
+
    1/11 10:52-10:52  11:06-11:07
    2/11 10:14-10:15                         | gewitter
    3/11 09:31-09:32  14:06-14:08	        | gewitter
-   
-   
-"""
 
+
+"""
 
 # TODO:
 """

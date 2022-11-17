@@ -8,7 +8,7 @@ from typing import List, Union
 
 import config
 
-MAX_STATIONS = 3
+MAX_STATIONS = 8
 TIME_TOLERANCE = 60
 LIMIT = 0.60
 DATA_POINTS_PER_SECOND = config.DATA_POINTS_PER_SECOND
@@ -149,17 +149,17 @@ class EventList:
                     if len(event_tmp.stations) < MAX_STATIONS:
                         event_tmp.stations.append(j)
                         event_tmp.stations = list(set(event_tmp.stations))
-                    elif j in event_tmp.stations and len(event_tmp.stations) >= MAX_STATIONS:
-                        pass
                     elif j not in event_tmp.stations and len(event_tmp.stations) >= MAX_STATIONS:
-                        for stat in enumerate(event_tmp.stations):
-                            if not other.stations.count(stat[1]):
-                                event_tmp.stations.pop(stat[0])
+                        removed = False
+                        for stat in event_tmp.stations:
+                            if not other.stations.count(stat) and not removed:
+                                event_tmp.stations.remove(stat)
                                 event_tmp.stations.append(j)
                                 event_tmp.stations = list(set(event_tmp.stations))
+                                removed = True
             else:
                 for j in other.stations:
-                    if len(event_tmp.stations) < MAX_STATIONS:
+                    if len(event_tmp.stations) <= MAX_STATIONS:
                         event_tmp.stations.append(j)
                         event_tmp.stations = list(set(event_tmp.stations))
                     else:
@@ -206,3 +206,10 @@ class EventList:
     def sort(self):
         self.events = sorted(self.events, key=lambda event: event.time_start)
         
+
+def includes(event_list: EventList, event: Event):
+    for i in event_list:
+        if i.inList(EventList(event, event.time_start)):
+            return True
+    return False
+    

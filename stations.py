@@ -20,10 +20,10 @@ import config
 
 e_callisto_url = config.e_callisto_url
 
-station_dict = {}
-station_list = []
-
-# TODO -> keep dict?
+# station_dict = {}
+# station_list = []
+#
+# # TODO -> keep dict?
 
 
 class Station:
@@ -44,8 +44,8 @@ class Station:
             name = self.name + self.focus_code
         else:
             name = self.name
-        station_list.append(name)
-        station_dict[name] = self
+        # station_list.append(name)
+        # station_dict[name] = self
 
     def __str__(self):
         return self.name
@@ -81,8 +81,12 @@ class StationSet:
         return sets
 
 
-def getStationFromStr(name: str) -> Station:
-    return station_dict[name]
+def stationRange(station_list: List):
+    set_ = StationSet(station_list)
+    return set_.getSet()
+
+# def getStationFromStr(name: str) -> Station:
+#     return station_dict[name]
 
 
 def getFocusCode(*date, station: str):
@@ -92,7 +96,7 @@ def getFocusCode(*date, station: str):
     date_ = config.getDateFromArgs(*date)
 
     files = os.listdir(config.pathDataDay(date_))
-    files_station = [i for i in files if i.startswith(station)]
+    files_station = [i for i in files if i.startswith(station + "_")]
     for i in files_station:
         file = fits.open(config.pathDataDay(date_) + i)
         frq_axis = file[1].data['frequency'].flatten()
