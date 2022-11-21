@@ -15,11 +15,12 @@ from astropy.io import fits
 import urllib
 from bs4 import BeautifulSoup
 import os
+import warnings
 
 import config
 
 e_callisto_url = config.e_callisto_url
-
+seperator = "_"
 # station_dict = {}
 # station_list = []
 #
@@ -96,14 +97,14 @@ def getFocusCode(*date, station: str):
     date_ = config.getDateFromArgs(*date)
 
     files = os.listdir(config.pathDataDay(date_))
-    files_station = [i for i in files if i.startswith(station + "_")]
+    files_station = [i for i in files if i.startswith(station + seperator)]
     for i in files_station:
         file = fits.open(config.pathDataDay(date_) + i)
         frq_axis = file[1].data['frequency'].flatten()
         frq = sorted([frq_axis[0], frq_axis[-1]])
         if config.frq_limit_low_upper > frq[0] > config.frq_limit_low_lower and \
                 config.frq_limit_high_upper > frq[1] > config.frq_limit_high_lower:
-            return i.rsplit("_")[-1].rstrip(".fit.gz")
+            return i.rsplit(seperator)[-1].rstrip(config.file_ending)
     raise ValueError("No valid focus code for that day")
 
 
@@ -127,6 +128,15 @@ def listFD(url: str, station: List[str]):
     return [url + '/' + node.get('href') for node in soup.find_all('a')
             if node.get('href').startswith(station[0]) and node.get('href').endswith(station[1] + config.file_type_zip)]
 
+def getNameFcFromFile(file: str):
+    parts = file.rsplit(seperator)
+    if len(parts) < 4:
+        return None, None
+    elif len(parts) == 4:
+        return parts[0], parts[3][:2]
+    else:
+        len_ = len(parts)
+        return seperator.join([parts[i] for i in range(len_ - 3)]), parts[-1][:2]
 
 def getStations(*date):
     date_ = config.getDateFromArgs(*date)
@@ -136,8 +146,9 @@ def getStations(*date):
     stations = []
     stations_return = []
     for i in files:
-        parts = i.rsplit("_")
-        stations.append([parts[0], parts[3][:2]])
+        name_read, fc_read = getNameFcFromFile(i)
+        if name_read is not None:
+            stations.append([name_read, fc_read])
     stations_clean = []
     for i in stations:
         if i not in stations_clean:
@@ -163,14 +174,18 @@ def getStations(*date):
                         station = Station(name, focus_code, lon, lat, frq)
                         stations_return.append(station)
                 except IndexError:
-                    print("Could not read fits file of ", b)
+                    warnings.warn(message=f"Could not read fits file of {b}", category=UserWarning)
+                except KeyError:
+                    warnings.warn(message=f"Could not get Header Information from {b}", 
+                                  category=UserWarning)
                 break
     return stations_return
 
 
 def getStationFromFile(file: str):
-    name = file.rsplit("/")[-1].rsplit("_")[0]
-    focus_code = file.rsplit("/")[-1].rsplit("_")[-1].rstrip(".fit.gz")
+    name, focus_code = getNameFcFromFile(file)
+    if name is None:
+        raise AttributeError("cannot read file", file)
     try:
         with fits.open(file) as fds:
             lat = fds[0].header['OBS_LAT']
@@ -181,12 +196,19 @@ def getStationFromFile(file: str):
             loc = fds[0].header['OBS_LOC']
             if loc == 'W':
                 lon = -lon
+    except IndexError:
+        warnings.warn(message=f"failed to open {file}", category=UserWarning)
+        return Station(name, focus_code=focus_code)
+    except KeyError:
+        warnings.warn(message=f" {file}", category=UserWarning)
+        return Station(name, focus_code=focus_code)
+    finally:
+        try:
             frq_axis = fds[1].data["frequency"].flatten()
             frq = sorted([frq_axis[0], frq_axis[-1]])
             if config.frq_limit_low_upper > frq[0] > config.frq_limit_low_lower and \
                     config.frq_limit_high_upper  > frq[1] > config.frq_limit_high_lower:
                 return Station(name, focus_code, lon, lat, frq)
             raise AttributeError("Station in file has wrong frequency range.")
-    except IndexError:
-        print(f"failed to open {file}")
-        return Station(name, focus_code=focus_code)
+        except KeyError:
+            return Station(name, focus_code=focus_code)

@@ -43,18 +43,19 @@ class DataPoint:
 
         reader = file.rsplit('/')[-1]
         self.file_name = reader
-        reader = reader.rsplit('_')
+        station_name, focus_code = stations.getNameFcFromFile(reader)
+        reader = reader[len(station_name):].rsplit(stations.seperator)
 
-        self.year = int(reader[1][:4])
-        self.month = int(reader[1][4:6])
-        self.day = int(reader[1][6:])
-        self.hour = int(reader[2][:2])
-        self.minute = int(reader[2][2:4])
-        self.second = int(reader[2][4:])
+        self.year = int(reader[0][:4])
+        self.month = int(reader[0][4:6])
+        self.day = int(reader[0][6:])
+        self.hour = int(reader[1][:2])
+        self.minute = int(reader[1][2:4])
+        self.second = int(reader[1][4:])
         self.date = datetime(self.year, self.month, self.day, self.hour, self.minute, self.second)
 
         self.observatory = stations.getStationFromFile(config.pathDataDay(self.date) + file)
-        self.spectral_range_id = reader[3][:2]
+        self.spectral_range_id = focus_code
         self.path = config.pathDataDay(self.date)
 
         self.readFile()
