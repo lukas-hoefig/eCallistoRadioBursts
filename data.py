@@ -45,17 +45,21 @@ class DataPoint:
         self.file_name = reader
         station_name, focus_code = stations.getNameFcFromFile(reader)
         reader = reader[len(station_name):].rsplit(stations.seperator)
-
-        self.year = int(reader[0][:4])
-        self.month = int(reader[0][4:6])
-        self.day = int(reader[0][6:])
-        self.hour = int(reader[1][:2])
-        self.minute = int(reader[1][2:4])
-        self.second = int(reader[1][4:])
+        self.year = int(reader[1][:4])
+        self.month = int(reader[1][4:6])
+        self.day = int(reader[1][6:])
+        self.hour = int(reader[2][:2])
+        self.minute = int(reader[2][2:4])
+        self.second = int(reader[2][4:])
         self.date = datetime(self.year, self.month, self.day, self.hour, self.minute, self.second)
 
-        self.observatory = stations.getStationFromFile(config.pathDataDay(self.date) + file)
-        self.spectral_range_id = focus_code
+        try:
+            self.observatory = stations.getStationFromFile(config.pathDataDay(self.date) + file)
+            self.spectral_range_id = focus_code
+        except AttributeError:
+            self.observatory = None
+            self.spectral_range_id = None
+            return
         self.path = config.pathDataDay(self.date)
 
         self.readFile()
@@ -124,7 +128,8 @@ class DataPoint:
                 self.spectrum_data = None
                 return
         self.number_values = min(self.spectrum_data.data.shape[1], len(self.spectrum_data.time_axis))
-        self.points_per_second = self.number_values / (self.spectrum_data.end - self.spectrum_data.start).total_seconds()
+        self.points_per_second = self.number_values / (
+                    self.spectrum_data.end - self.spectrum_data.start).total_seconds()
         self.binned_time_width = np.around(config.DATA_POINTS_PER_SECOND / self.points_per_second, 0)
         if self.binned_time_width != 1:
             self.binned_time = True
@@ -206,8 +211,8 @@ class DataPoint:
         if self.binned_time:
             if self.binned_time_width >= width:
                 return
-            elif width/self.binned_time_width == int(width/self.binned_time_width):
-                new_width = int(np.around(width/self.binned_time_width, 0))
+            elif width / self.binned_time_width == int(width / self.binned_time_width):
+                new_width = int(np.around(width / self.binned_time_width, 0))
             else:
                 raise ValueError("please don't bin weird values, and avoid binning binned data if possible")
         else:
@@ -269,11 +274,11 @@ class DataPoint:
 
         self.summed_curve = [np.nansum(self.spectrum_data.data.transpose()[time][freq_high:freq_low + 1]) for time
                              in range(self.number_values)]
-        
+
         if not debug:
             curve = np.array(self.summed_curve)
             max_curve = np.nanmax(curve)
-            mask = np.array([(i < 0) and (abs(i)>2*max_curve) for i in curve])
+            mask = np.array([(i < 0) and (abs(i) > 2 * max_curve) for i in curve])
             curve[mask] = np.nanmedian(curve)
             self.summed_curve = curve.tolist()
 
@@ -304,7 +309,8 @@ class DataPoint:
 
     def plotSummedCurve(self, ax, peaks=None, label=None, color=None):
         return plotCurve(self.spectrum_data.time_axis, self.summed_curve, self.spectrum_data.start.timestamp(),
-                         self.binned_time, self.binned_time_width, ax, peaks=peaks, new_ax=True, label=label, color=color)
+                         self.binned_time, self.binned_time_width, ax, peaks=peaks, new_ax=True, label=label,
+                         color=color)
 
     def fileName(self):
         return f"{self.year}_{self.month:02}_{self.day:02}_{self.observatory}" \
@@ -347,7 +353,7 @@ def createDayList(*date, station: Union[stations.Station, str], debug=False) -> 
     data_day = []
 
     for file in files_day:
-        if file.startswith(station_name) and file.endswith(focus_code + file_ending):
+        if file.startswith(station_name + stations.seperator) and file.endswith(focus_code + file_ending):
             files_observatory.append(file)
 
     for file in files_observatory:
@@ -385,7 +391,7 @@ def createFromTime(*date, station: Union[stations.Station, str], extent=True, de
     time_target = date_.hour * 3600 + date_.minute * 60 + date_.second
     files_filtered = []
     for file in files:
-        if file.startswith(station_name) and file.endswith(spectral_id + file_ending):
+        if file.startswith(station_name + stations.seperator) and file.endswith(spectral_id + file_ending):
             files_filtered.append(file)
     for i, file in enumerate(files_filtered):
         time_read = file.rsplit('_')[2]
@@ -401,7 +407,8 @@ def createFromTime(*date, station: Union[stations.Station, str], extent=True, de
                 dp_ahead = DataPoint(files_filtered[i - 1], debug=debug)
                 if dp_ahead.spectrum_data is not None and frqProfile(dp) == frqProfile(dp_ahead):
                     dp = dp_ahead + dp0
-            if extent and i + 1 < len(files_filtered) and (((date_.minute * 60 + date_.second) - (minute * 60 + second)) > (10 * 60)):
+            if extent and i + 1 < len(files_filtered) and (
+                    ((date_.minute * 60 + date_.second) - (minute * 60 + second)) > (10 * 60)):
                 dp_after = DataPoint(files_filtered[i + 1], debug=debug)
                 if dp_after.spectrum_data is not None and frqProfile(dp) == frqProfile(dp_after):
                     dp = dp0 + dp_after
@@ -411,7 +418,7 @@ def createFromTime(*date, station: Union[stations.Station, str], extent=True, de
 
 def createFromEvent(event: events.Event, station=None, debug=False, extent=True):
     """
-    TODO 
+    TODO
     """
     time_start = event.time_start
     time_end = event.time_end
@@ -435,7 +442,7 @@ def createFromEvent(event: events.Event, station=None, debug=False, extent=True)
         i += 1
         if i > 3:
             break
-    
+
     if not extent:
         if (event.time_start - event.time_end).total_seconds() < 20:
             delta = timedelta(seconds=10)
@@ -443,19 +450,20 @@ def createFromEvent(event: events.Event, station=None, debug=False, extent=True)
             delta = timedelta(seconds=1)
     else:
         delta = timedelta(minutes=3)
-    
+
     del_start = int((event.time_start - dp.spectrum_data.start - delta).total_seconds()
                     * dp.points_per_second)
     del_end = int((event.time_end - dp.spectrum_data.start + delta).total_seconds()
                   * dp.points_per_second)
-    
+
     dp.spectrum_data.end = event.time_end + delta
     dp.spectrum_data.start = event.time_start - delta
-    
+
     if del_start < 0:
         del_start = 0
     dp.spectrum_data.data = dp.spectrum_data.data[:, del_start:del_end]
-    dp.spectrum_data.time_axis = np.arange(0,dp.spectrum_data.shape[1]/dp.points_per_second, 1/dp.points_per_second)
+    dp.spectrum_data.time_axis = np.arange(0, dp.spectrum_data.shape[1] / dp.points_per_second,
+                                           1 / dp.points_per_second)
     dp.number_values = min(dp.spectrum_data.data.shape[1], len(dp.spectrum_data.time_axis))
 
     if len(dp.spectrum_data.time_axis) < config.ROLL_WINDOW / config.BIN_FACTOR * 10:
@@ -548,7 +556,7 @@ def fitTimeFrameDataSample(_data_point1, _data_point2):
     :return: DataPoint(timeframe), DataPoint(timeframe)
     """
     try:
-        while abs((_data_point1[0].dateTime() - _data_point2[0].dateTime()).total_seconds()) >=\
+        while abs((_data_point1[0].dateTime() - _data_point2[0].dateTime()).total_seconds()) >= \
                 timedelta(minutes=15).total_seconds():
             if (_data_point1[0].dateTime() - _data_point2[0].dateTime()).total_seconds() < 0:
                 _data_point1.pop(0)
@@ -573,10 +581,6 @@ def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, axis, _plot
     TODO: rewrite peaks -> events.Event | events.EventList
     """
     plotCurve.curve += 1
-    #if _bin_time:
-    #    data_per_second = DATA_POINTS_PER_SECOND / _bin_time_width                                  # TODO
-    #else:
-    #    data_per_second = DATA_POINTS_PER_SECOND
     time_axis_plot = []
     for i in _time:
         time_axis_plot.append(
@@ -584,10 +588,10 @@ def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, axis, _plot
     time_axis_plot = pd.to_datetime(time_axis_plot)
     dataframe = pd.DataFrame()
     dataframe['data'] = _data
-    
+
     if not color:
         color = config.getColor()
-    
+
     if new_ax:
         ax = axis.twinx()
         ax.set_axis_off()

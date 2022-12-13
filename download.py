@@ -30,7 +30,7 @@ def downloadFullDay(*date: Union[datetime.datetime, int],
     for i, j in enumerate(station):
         if isinstance(j, stations.Station):
             station[i] = j.name
-
+    station = list(set(station))
     year = date_.year
     month = date_.month
     day = date_.day
@@ -112,11 +112,11 @@ def createLog(*date: datetime.datetime, station: List[str], _overwrite=True):
     else:
         datalog = open(path_log + file_log, "a")
     files = os.listdir(path_log)
-    for station in station:
-        if any(file.startswith(station) for file in files):
-            datalog.write(station + " ")
+    for station_ in station:
+        if any(file.startswith(station_ + stations.seperator) for file in files):
+            datalog.write(station_ + " ")
         else:
-            datalog.write(station + "- ")
+            datalog.write(station_ + "- ")
     datalog.close()
 
 

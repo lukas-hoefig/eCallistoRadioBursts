@@ -3,7 +3,7 @@
 
 import copy
 import numpy as np
-from typing import List, Union
+from typing import List
 import warnings
 
 import download
@@ -11,7 +11,6 @@ import stations
 import analysis
 import events
 import data
-import correlation
 import config
 
 
@@ -31,17 +30,20 @@ def dataSetDay(*date, run=False):
 
 
 def firstStep(*date, data_sets: List[data.DataPoint], mask_frq=False, nobg=True, bin_f=False, bin_t=False,
-              flatten=True, bin_t_w=4, flatten_w=400, r_w=180):
+              flatten=True, bin_t_w=4, flatten_w=400, r_w=180, limit=None):
     print(f"\nstarting 1st Step:")
     date_ = config.getDateFromArgs(*date)
-    limit = config.correlation_start
+    if limit is None:
+        limit = config.correlation_start
+    else:
+        limit = limit
     perm_abs = int(len(data_sets) * (len(data_sets) - 1) / 2)
-    perm = perm_abs + 1
+    perm = 0
     print(perm_abs, "permutations to go")
     e_list = events.EventList([], date_)
     for i, data_point_1 in enumerate(data_sets):
         for j, data_point_2 in enumerate(data_sets[i + 1:]):
-            perm -= 1
+            perm += 1
             data1 = copy.deepcopy(data_point_1)
             data2 = copy.deepcopy(data_point_2)
             if data1 and data2:

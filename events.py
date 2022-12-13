@@ -17,12 +17,12 @@ BURST_TYPE_UNKNOWN = "???"
 
 
 def header():
-    return f"# Product: e-CALLISTO automated search by ROBUST\n"\
-           f"# Please send comments and suggestions regarding ROBUST to lukas.hoefig.edu.uni-graz.at\n"\
-           f"#     or for general questions, comments or suggestions: christian.monstein(at)irsol.usi.ch\n"\
+    return f"# Product: e-CALLISTO automated search by ROBUST\n" \
+           f"# Please send comments and suggestions regarding ROBUST to lukas.hoefig.edu.uni-graz.at\n" \
+           f"#     or for general questions, comments or suggestions: christian.monstein(at)irsol.usi.ch\n" \
            f"# Missing data: ##:##-##:##\n" \
-           f"#\n"\
-           f"#Date		Time		Type	Stations\n"\
+           f"#\n" \
+           f"#Date		Time		Type	Stations\n" \
            f"#-------------------------------------------------------------------------------"
 
 
@@ -65,7 +65,7 @@ class Event:
         if not full:
             station_names = [i.name for i in self.stations]
             return f"{self.time_start.strftime(config.event_time_format_date)}\t" \
-                   f"{self.time_start.strftime(config.event_time_format_short)}-{self.time_end.strftime(config.event_time_format_short)}\t"\
+                   f"{self.time_start.strftime(config.event_time_format_short)}-{self.time_end.strftime(config.event_time_format_short)}\t" \
                    f"{self.burst_type}\t{', '.join(station_names)}"
         else:
             return str([self.burst_type, self.time_start, self.time_end, f"{self.probability:.4f}"])
@@ -78,13 +78,13 @@ class Event:
 
     def compare(self, other):
         delta_start = abs((self.time_start - other.time_start).total_seconds())
-        delta_end  = abs((self.time_end - other.time_end).total_seconds())
+        delta_end = abs((self.time_end - other.time_end).total_seconds())
         delta_e1s2 = abs((self.time_end - other.time_start).total_seconds())
         delta_e2s1 = abs((self.time_start - other.time_end).total_seconds())
 
         return min(delta_start, delta_end, delta_e1s2, delta_e2s1) < timedelta(seconds=TIME_TOLERANCE).total_seconds() \
-            or (self.time_start < other.time_start and self.time_end > other.time_end) \
-            or (other.time_start < self.time_start and other.time_end > self.time_end)
+               or (self.time_start < other.time_start and self.time_end > other.time_end) \
+               or (other.time_start < self.time_start and other.time_end > self.time_end)
 
     def __eq__(self, other):
         return self.compare(other)
@@ -205,11 +205,10 @@ class EventList:
 
     def sort(self):
         self.events = sorted(self.events, key=lambda event: event.time_start)
-        
+
 
 def includes(event_list: EventList, event: Event):
     for i in event_list:
         if i.inList(EventList(event, event.time_start)):
             return True
     return False
-    

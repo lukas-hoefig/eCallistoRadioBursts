@@ -128,8 +128,10 @@ def listFD(url: str, station: List[str]):
     return [url + '/' + node.get('href') for node in soup.find_all('a')
             if node.get('href').startswith(station[0]) and node.get('href').endswith(station[1] + config.file_type_zip)]
 
+
 def getNameFcFromFile(file: str):
-    parts = file.rsplit(seperator)
+    file_name = file.rsplit("/")[-1]
+    parts = file_name.rsplit(seperator)
     if len(parts) < 4:
         return None, None
     elif len(parts) == 4:
@@ -137,6 +139,7 @@ def getNameFcFromFile(file: str):
     else:
         len_ = len(parts)
         return seperator.join([parts[i] for i in range(len_ - 3)]), parts[-1][:2]
+
 
 def getStations(*date):
     date_ = config.getDateFromArgs(*date)
@@ -162,21 +165,28 @@ def getStations(*date):
                     lat = fds[0].header['OBS_LAT']
                     lac = fds[0].header['OBS_LAC']
                     if lac == 'S':
-                        lat = -lat
+                        lat_ = -lat
+                    else:
+                        lat_ = lat
                     lon = fds[0].header['OBS_LON']
                     loc = fds[0].header['OBS_LOC']
                     if loc == 'W':
-                        lon = -lon
+                        lon_ = -lon
+                    else:
+                        lon_ = lon
                     frq_axis = fds[1].data['frequency'].flatten()
                     frq = sorted([frq_axis[0], frq_axis[-1]])
                     if config.frq_limit_low_upper > frq[0] > config.frq_limit_low_lower and \
                             config.frq_limit_high_upper > frq[1] > config.frq_limit_high_lower:
-                        station = Station(name, focus_code, lon, lat, frq)
+                        station = Station(name, focus_code, lon_, lat_, frq)
                         stations_return.append(station)
                 except IndexError:
                     warnings.warn(message=f"Could not read fits file of {b}", category=UserWarning)
                 except KeyError:
-                    warnings.warn(message=f"Could not get Header Information from {b}", 
+                    warnings.warn(message=f"Could not get Header Information from {b}",
+                                  category=UserWarning)
+                except TypeError:
+                    warnings.warn(message=f"Could not get Header Information from {b}",
                                   category=UserWarning)
                 break
     return stations_return
@@ -204,11 +214,15 @@ def getStationFromFile(file: str):
         return Station(name, focus_code=focus_code)
     finally:
         try:
-            frq_axis = fds[1].data["frequency"].flatten()
-            frq = sorted([frq_axis[0], frq_axis[-1]])
-            if config.frq_limit_low_upper > frq[0] > config.frq_limit_low_lower and \
-                    config.frq_limit_high_upper  > frq[1] > config.frq_limit_high_lower:
-                return Station(name, focus_code, lon, lat, frq)
-            raise AttributeError("Station in file has wrong frequency range.")
+            with fits.open(file) as fds:
+                frq_axis = fds[1].data["frequency"].flatten()
+                frq = sorted([frq_axis[0], frq_axis[-1]])
+                if config.frq_limit_low_upper > frq[0] > config.frq_limit_low_lower and \
+                        config.frq_limit_high_upper > frq[1] > config.frq_limit_high_lower:
+                    return Station(name, focus_code, lon, lat, frq)
+                raise AttributeError("Station in file has wrong frequency range.")
+        except IndexError:
+            warnings.warn(message=f"failed to open {file}", category=UserWarning)
+            return Station(name, focus_code=focus_code)
         except KeyError:
             return Station(name, focus_code=focus_code)

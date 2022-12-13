@@ -92,7 +92,7 @@ def getPathScript():
 
 
 path_script = getPathScript()
-path_data = path_script + "eCallistoData/"                # "C:/Users/14hoefig/data/eCallisto/"                   #  "eCallistoData/"
+path_data = path_script + "eCallistoData/"
 path_realtime = path_data + "realtime/"
 path_results = path_script + "results/"
 path_plots = "eCallistoPlots/"

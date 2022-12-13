@@ -21,7 +21,7 @@ if __name__ == '__main__':
 
     for i in range(0, args[3]):
         date = date_start + datetime.timedelta(days=i)
-        data_raw = steps.dataSetDay(date)
+        data_raw = steps.dataSetDay(date, run=True)
         data_step_1 = steps.firstStep(date, data_sets=data_raw, mask_frq=True)
         analysis.saveData(date, event_list=data_step_1, step=1)
         data_step_2 = steps.secondStep(None, date)
@@ -31,50 +31,8 @@ if __name__ == '__main__':
         data_step_4 = steps.fourthStep(None, date)
         analysis.saveData(date, event_list=data_step_4, step=4)
 
-# 31.01 18:11 why?
+
 """
-if __name__ == '__main__':
-    # bacBurstFailed()
-
-    #nobg = False
-    #bin_f = False
-    #bin_t = False
-    #flatten = False
-    #bin_t_w = 1
-    #flatten_w = 1
-    ## nobg = True
-    #for r_w in range(20, 260, 20):
-    #    testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
-    #
-    #r_w = 160
-    #flatten = True
-    #for flatten_w in range(40, 400, 60):
-    #    testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
-    #
-    #r_w = 160
-    #flatten = False
-    #bin_t = True
-    #for bin_t_w in range(2, 16, 2):
-    #    testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
-    #
-    #r_w = 180
-    #flatten = True
-    #flatten_w = 220
-    #bin_f = True
-    #for nobg in range(2):
-    #    testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
-
-    flatten = True
-    flatten_w = 220
-    bin_f = False
-    nobg = True
-    bin_t = False
-    bin_t_w = 4
-    for r_w in range(180, 260, 10):
-        testBacBursts(nobg, bin_f, bin_t, flatten, bin_t_w, flatten_w, r_w)
-
-
-
 
    andere ecallisto auswertungen -> type 3
    warum/wie/welche werte setzen -> i.e. binsize -> ___statistics___ 
