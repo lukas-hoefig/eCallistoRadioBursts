@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+"""
+ -  ROBUST  -
+ - reference.py -
+
+downloads references from NOAA SWPC and from e-Callisto list managed by Christian Monstein
+"""
+
 from datetime import datetime
 import urllib
 

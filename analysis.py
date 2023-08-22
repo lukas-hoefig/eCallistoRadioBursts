@@ -1,5 +1,12 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
+"""
+ -  ROBUST  -
+ - analysis.py -
+
+Contains most top level functions to directly calculate SRBs, create Plots, save/load data in ROBUST file format
+"""
 
 from datetime import datetime, timedelta
 from scipy.signal import find_peaks
@@ -10,7 +17,7 @@ import pandas as pd
 import copy
 import os
 import pickle
-from typing import Union
+from typing import Union, Tuple
 
 import config
 import data
@@ -25,7 +32,17 @@ mask_frq_limit = 1.1
 # TODO make plot() its own function - code duplication
 
 
-def maskBadFrequencies(datapoint: Union[data.DataPoint, np.ndarray], limit=mask_frq_limit):   # TODO apply=False
+# TODO def applyMaskBadFrequency(): return masked data
+def maskBadFrequencies(datapoint: Union[data.DataPoint, np.ndarray], limit: float = mask_frq_limit) -> np.array([bool]):
+    """
+    dynamic frequency filter to filter frequencies with irregular noise
+    only works for small time-frames - low values of limit max filter signal, high values may ignore everything
+
+    :param datapoint: Input data
+    :param limit: *stddev() | values for frequencies above/below that limit get discarded,
+                  values also get discarded if >10*mean(stddev(frq_i))
+    :return: np.array[bool] mask array what frequencies to keep
+    """
     if isinstance(datapoint, data.DataPoint):
         dpt = copy.deepcopy(datapoint)
         dpt.subtractBackground()
@@ -46,11 +63,23 @@ def maskBadFrequencies(datapoint: Union[data.DataPoint, np.ndarray], limit=mask_
         mean_.append(np.nanstd(i))
     mean = np.nanmedian(mean_)
 
-    mask = np.array([(abs(j - summed_mean) > summed_lim) or (mean_[i] > mean * 10) for i, j in enumerate(summed)])
+    mask = np.array([(abs(j - summed_mean) > summed_lim)
+                    or (mean_[i] > mean * 10) for i, j in enumerate(summed)])
     return mask
 
 
-def maskBadFrequenciesPlot(datapoint: data.DataPoint, limit=mask_frq_limit, save_img=False):
+def maskBadFrequenciesPlot(datapoint: data.DataPoint, limit: float = mask_frq_limit, save_img: bool = False) \
+        -> np.array([bool]):
+    """
+    same as maskBadFrequencies(), but also plots the spectrogram. it also saves the image into the current folder with
+    an appropriate name.
+
+    :param datapoint: Input data
+    :param limit: *stddev() | values for frequencies above/below that limit get discarded,
+                  values also get discarded if >10*mean(stddev(frq_i))
+    :param save_img:
+    :return: np.array[bool] mask array what frequencies to keep
+    """
     data_ = datapoint.spectrum_data.data
     frq = datapoint.spectrum_data.freq_axis
     summed = np.array([np.nansum(f) for f in data_])
@@ -109,13 +138,44 @@ def maskBadFrequenciesPlot(datapoint: data.DataPoint, limit=mask_frq_limit, save
     return mask
 
 
-def calcPoint(*date, obs1: stations.Station, obs2: stations.Station, data_point_1=None, data_point_2=None,
-              mask_frq=False, limit_frq=mask_frq_limit, extent=True, limit=correlation.CORRELATION_MIN,
-              flatten=None, bin_time=None, bin_freq=None, no_bg=None, r_window=None,
-              flatten_window=None, bin_time_width=None, method_bin_t=None, method_bin_f=None):
+def calcPoint(*date: Union[int, datetime], obs1: Union[stations.Station, str], obs2: Union[stations.Station, str],
+              data_point_1: data.DataPoint = None, data_point_2: data.DataPoint = None,
+              mask_frq: bool or None = None, limit_frq: bool = mask_frq_limit, extent: bool = True,
+              limit: float or None = None, flatten: float or None = None, bin_time: float = None,
+              bin_freq: bool = None, no_bg: bool = None, r_window: int = None, flatten_window: int = None,
+              bin_time_width: int = None, method_bin_t: str = None, method_bin_f: str = None) \
+        -> Tuple[data.DataPoint, data.DataPoint, correlation.Correlation] or None:
     """
-    TODO -> corrupt data -> skip 
+    Calculates via correlation method whether there are possible bursts in two spectra.
+
+    Spectra are either:
+
+    option1: given directly via data_point_1|data_point_2
+
+    option2: date and 2 stations are specified
+
+    :param data_point_1: option1: datapoint 1 to be compared
+    :param data_point_2: option1: datapoint 1 to be compared
+    :param date: option2: Datetime or (3+) Ints to create DateTime (year, month, day)
+    :param obs1: option2: Station to create datapoint, if datapoint is not set
+    :param obs2: option2: Station to create datapoint, if datapoint is not set
+    :param mask_frq: toggle dynamic frequency filter
+    :param limit_frq: float - set limit for maskBadFrequencies
+    :param extent: for option2: allows createFromTime() to load previous/subsequent file if date is close to file edge
+    :param limit: min correlation required to recognise burst
+    :param flatten: toggle median subtraction
+    :param flatten_window: if 'flatten': rolling window size
+    :param bin_time: toggle time binning
+    :param bin_time_width: #points to be merged into new point
+    :param bin_freq: toggle frequency binning
+    :param no_bg: toggle background subtraction
+    :param r_window: rolling window correlation method
+    :param method_bin_t: str - toggle between mean and median
+    :param method_bin_f: str - toggle between mean and median
+    :return: datapoint 1, datapoint 2, correlation | None if either DataPoint can't be loaded
     """
+    if limit is None:
+        limit = correlation.CORRELATION_MIN
     if flatten is None:
         flatten = True
     if flatten_window is None:
@@ -124,6 +184,8 @@ def calcPoint(*date, obs1: stations.Station, obs2: stations.Station, data_point_
         bin_time = True
     if bin_freq is None:
         bin_freq = False
+    if mask_frq is None:
+        mask_frq = False
     if no_bg is None:
         no_bg = True
     if bin_time_width is None:
@@ -146,11 +208,14 @@ def calcPoint(*date, obs1: stations.Station, obs2: stations.Station, data_point_
         return
 
     if mask_frq:
+        data_1 = copy.deepcopy(data_point_1.spectrum_data.data)
+        data_2 = copy.deepcopy(data_point_2.spectrum_data.data)
         mask1 = maskBadFrequencies(data_point_1, limit=limit_frq)
         mask2 = maskBadFrequencies(data_point_2, limit=limit_frq)
-        data_point_1.spectrum_data.data[mask1, :] = np.nanmean(data_point_1.spectrum_data.data)
-
-        data_point_2.spectrum_data.data[mask2, :] = np.nanmean(data_point_2.spectrum_data.data)
+        mean_1 = np.nanmean(data_1)
+        mean_2 = np.nanmean(data_2)
+        data_point_1.spectrum_data.data[mask1, :] = mean_1
+        data_point_2.spectrum_data.data[mask2, :] = mean_2
     else:
         pass
 
@@ -165,21 +230,32 @@ def calcPoint(*date, obs1: stations.Station, obs2: stations.Station, data_point_
 
     data_point_1.createSummedCurve()
     data_point_2.createSummedCurve()
-    data_point_1.flattenSummedCurve(rolling_window=correlation.default_flatten_window)
-    data_point_2.flattenSummedCurve(rolling_window=correlation.default_flatten_window)
+    data_point_1.flattenSummedCurve(
+        rolling_window=correlation.default_flatten_window)
+    data_point_2.flattenSummedCurve(
+        rolling_window=correlation.default_flatten_window)
     if no_bg:
         data_point_1.subtractBackground()
         data_point_2.subtractBackground()
     return data_point_1, data_point_2, cor
 
 
-def plotDatapoint(datapoint: data.DataPoint, curve=False, save_img=False):   # TODO longer timeframes -> xticks
+def plotDatapoint(datapoint: data.DataPoint, curve: bool = False, save_img: bool = False, folder: str = "") -> None:
+    """
+    Creates a (pretty) Plot of a datapoint.
+
+    :param datapoint: input data
+    :param curve: bool: whether summed intensity curve gets overlain
+    :param save_img: bool: whether picture gets saved
+    :param folder: specify a folder for resulting file
+    """
     t = np.arange(datapoint.spectrum_data.start.strftime("%Y-%m-%dT%H:%M:%S.%z"),
                   datapoint.spectrum_data.end.strftime("%Y-%m-%dT%H:%M:%S.%z"), dtype='datetime64[s]').astype(datetime)
     mt = mdates.date2num((t[0], t[-1]))
 
     fig, ax = plt.subplots(figsize=(plot_size_x, plot_size_y))
-    fig.suptitle(f"{datapoint.day}.{datapoint.month}.{datapoint.year} Radio Flux Data {datapoint.observatory.name}")
+    fig.suptitle(
+        f"{datapoint.day}.{datapoint.month}.{datapoint.year} Radio Flux Data {datapoint.observatory.name}")
     ax.set_xlabel("Time")
     ax.set_ylabel("Frequency [MHz]")
     plt.imshow(datapoint.spectrum_data.data, extent=[mt[0], mt[1], 0, int(900 / plot_size_x * plot_size_y)],
@@ -202,7 +278,8 @@ def plotDatapoint(datapoint: data.DataPoint, curve=False, save_img=False):   # T
         ax3.set_axis_off()
         time_axis_plot2 = []
         for i in _time:
-            time_axis_plot2.append(datetime.fromtimestamp(_time_start + i).strftime("%Y %m %d %H:%M:%S"))
+            time_axis_plot2.append(datetime.fromtimestamp(
+                _time_start + i).strftime("%Y %m %d %H:%M:%S"))
         time_axis_plot2 = pd.to_datetime(time_axis_plot2)
         dataframe2 = pd.DataFrame()
         dataframe2['data'] = datapoint.summed_curve
@@ -212,12 +289,26 @@ def plotDatapoint(datapoint: data.DataPoint, curve=False, save_img=False):   # T
         plt.legend(loc='best')
     plt.tight_layout()
     if save_img:
-        plt.savefig(f"{['','curve'][curve]}"+datapoint.fileName(), transparent=True)
+        name = f"{['','curve'][curve]}"+datapoint.fileName()
+        if folder:
+            name = os.path.join(folder, name)
+        plt.savefig(name, transparent=True)
     plt.show()
 
 
 def plotEverything(dp1: data.DataPoint, dp2: data.DataPoint, cor: correlation.Correlation,
-                   limit=correlation.CORRELATION_MIN, save_img=False):
+                   limit=correlation.CORRELATION_MIN, save_img=False) -> None:
+    """
+    Creates (pretty) plot of a datapoint and resulting correlation with another datapoint
+
+    (best to be used with output data of calcPoint)
+
+    :param dp1: input data (gets plotted)
+    :param dp2: reference data (only summed intensity plotted)
+    :param cor: correlation of d1 and d2
+    :param limit: float: set marks if correlation exceeds limit
+    :param save_img: whether image gets saved as file
+    """
     if cor.day == dp1.day:
         year = dp1.year
         month = dp1.month
@@ -228,9 +319,9 @@ def plotEverything(dp1: data.DataPoint, dp2: data.DataPoint, cor: correlation.Co
         month = date.month
         day = date.day
 
-    #if len(cor.data_curve) < len(dp1.spectrum_data.time_axis[::4]):
+    # if len(cor.data_curve) < len(dp1.spectrum_data.time_axis[::4]):
     #    _time = dp1.spectrum_data.time_axis[::4][:len(cor.data_curve)]
-    #else:
+    # else:
     #    _time = dp1.spectrum_data.time_axis[::4]
 
     _time = cor.time_axis
@@ -260,10 +351,12 @@ def plotEverything(dp1: data.DataPoint, dp2: data.DataPoint, cor: correlation.Co
     plt.xticks(rotation=60)
 
     ax2 = plt.twinx(ax)
-    plot_limit = ax2.axhline(limit, color="yellow", linestyle='--', label='Correlation Limit')
+    plot_limit = ax2.axhline(limit, color="yellow",
+                             linestyle='--', label='Correlation Limit')
     time_axis_plot = []
     for i in _time:
-        time_axis_plot.append(datetime.fromtimestamp(_time_start + i).strftime("%Y %m %d %H:%M:%S"))
+        time_axis_plot.append(datetime.fromtimestamp(
+            _time_start + i).strftime("%Y %m %d %H:%M:%S"))
     time_axis_plot = pd.to_datetime(time_axis_plot)
     dataframe = pd.DataFrame()
     dataframe['data'] = _data
@@ -280,23 +373,27 @@ def plotEverything(dp1: data.DataPoint, dp2: data.DataPoint, cor: correlation.Co
     ax3.set_axis_off()
     time_axis_plot2 = []
     for i in _time2:
-        time_axis_plot2.append(datetime.fromtimestamp(_time_start + i).strftime("%Y %m %d %H:%M:%S"))
+        time_axis_plot2.append(datetime.fromtimestamp(
+            _time_start + i).strftime("%Y %m %d %H:%M:%S"))
     time_axis_plot2 = pd.to_datetime(time_axis_plot2)
     dataframe2 = pd.DataFrame()
     dataframe2['data'] = dp1.summed_curve
     dataframe2 = dataframe2.set_index(time_axis_plot2)
-    plot_dat = ax3.plot(dataframe2, color="white", linewidth=1, label=f"Summed Intensity Curve {dp1.observatory.name}")
+    plot_dat = ax3.plot(dataframe2, color="white", linewidth=1,
+                        label=f"Summed Intensity Curve {dp1.observatory.name}")
 
     ax4 = plt.twinx(ax)
     ax4.set_axis_off()
     time_axis_plot3 = []
     for i in _time3:
-        time_axis_plot3.append(datetime.fromtimestamp(_time_start + i).strftime("%Y %m %d %H:%M:%S"))
+        time_axis_plot3.append(datetime.fromtimestamp(
+            _time_start + i).strftime("%Y %m %d %H:%M:%S"))
     time_axis_plot3 = pd.to_datetime(time_axis_plot3)
     dataframe3 = pd.DataFrame()
     dataframe3['data'] = dp2.summed_curve
     dataframe3 = dataframe3.set_index(time_axis_plot3)
-    plot_dat2 = ax4.plot(dataframe3, color="cyan", linewidth=1, label=f"Summed Intensity Curve {dp2.observatory.name}")
+    plot_dat2 = ax4.plot(dataframe3, color="cyan", linewidth=1,
+                         label=f"Summed Intensity Curve {dp2.observatory.name}")
 
     plots = plot_cor + plot_dat + plot_dat2
     plots.append(plot_limit)
@@ -304,29 +401,46 @@ def plotEverything(dp1: data.DataPoint, dp2: data.DataPoint, cor: correlation.Co
     _peaks_start = []
     _peaks_end = []
     for j, i in enumerate(cor.peaks):
-        start = mdates.date2num(i.time_start-timedelta(seconds=unscientific_shift))
+        start = mdates.date2num(
+            i.time_start-timedelta(seconds=unscientific_shift))
         end = mdates.date2num(i.time_end-timedelta(seconds=unscientific_shift))
         _peaks_start.append(start)
         _peaks_end.append(end)
 
-        plot_b_start = plt.axvline(start, color="darkgrey", linestyle='--', label='Burst start')
-        plot_b_end = plt.axvline(end, color="black", linestyle='--', label='Burst end')
+        plot_b_start = plt.axvline(
+            start, color="darkgrey", linestyle='--', label='Burst start')
+        plot_b_end = plt.axvline(
+            end, color="black", linestyle='--', label='Burst end')
 
         if not j:
             plots.extend([plot_b_start, plot_b_end])
 
     labs = [i.get_label() for i in plots]
-    plt.legend(plots, labs, loc="lower right")     # -> TODO position
+    # -> TODO position as parameter
+    plt.legend(plots, labs, loc="lower right")
     plt.tight_layout()
     if save_img:
         plt.savefig(cor.fileName(), transparent=True)
     plt.show()
 
 
-def peaksInData(dp1: data.DataPoint, dp2: data.DataPoint, plot=False, save_img=False, peak_limit=2.15):
+def peaksInData(dp1: data.DataPoint, dp2: data.DataPoint,
+                plot: bool = False, save_img: bool = False, peak_limit: float or None = None) \
+        -> events.EventList:
     """
+    Find peaks in dp1 and dp2 at the same datetime. limit is dynamically generated by stddev(curves) * peak_limit
+
+    :param dp1: input data 1
+    :param dp2: input data 2
+    :param plot: bool: create image of calculation
+    :param save_img: bool: save image as file
+    :param peak_limit: float: limit for scipy.find_peaks()
+    :return: events.EventList(possible bursts)
 
     """
+    if peak_limit is None:
+        peak_limit = 2.15
+
     # TODO different time range of files
     if dp1.observatory == dp2.observatory:
         return events.EventList([], dp1.spectrum_data.start)
@@ -335,6 +449,7 @@ def peaksInData(dp1: data.DataPoint, dp2: data.DataPoint, plot=False, save_img=F
         dp2.binDataTime(width=dp1.binned_time_width)
     elif dp2.binned_time and not dp1.binned_time:
         dp1.binDataTime(width=dp2.binned_time_width)
+
     dp1.subtractBackground()
     dp2.subtractBackground()
     dp1.createSummedCurve()
@@ -367,7 +482,8 @@ def peaksInData(dp1: data.DataPoint, dp2: data.DataPoint, plot=False, save_img=F
             if not all(np.around(kk - new2, -2)):
                 new3.append(kk)
         for i in new3:
-            peak = datetime.fromtimestamp(_time_start + i / dp1.points_per_second)
+            peak = datetime.fromtimestamp(
+                _time_start + i / dp1.points_per_second)
             event = events.Event(peak, probability=correlation.CORRELATION_MIN)
             peaks.append(event)
     events_ = events.EventList(peaks, dp1.spectrum_data.start)
@@ -381,49 +497,76 @@ def peaksInData(dp1: data.DataPoint, dp2: data.DataPoint, plot=False, save_img=F
 
         time_axis_plot1 = []
         for i in _time1_:
-            time_axis_plot1.append(datetime.fromtimestamp(_time_start + i).strftime("%Y %m %d %H:%M:%S"))
+            time_axis_plot1.append(datetime.fromtimestamp(
+                _time_start + i).strftime("%Y %m %d %H:%M:%S"))
         time_axis_plot1 = pd.to_datetime(time_axis_plot1)
         dataframe1 = pd.DataFrame()
         dataframe1['data'] = dp1.summed_curve
         dataframe1 = dataframe1.set_index(time_axis_plot1)
-        plt.plot(dataframe1, color="red", linewidth=2, label=f"{dp1.observatory}")
+        plt.plot(dataframe1, color="red", linewidth=2,
+                 label=f"{dp1.observatory}")
         for i in scipy_peaks1:
-            plt.plot(mdates.date2num(datetime.fromtimestamp(_time_start + i / dp1.points_per_second)), x1[i], "x", color="red")
+            plt.plot(mdates.date2num(datetime.fromtimestamp(
+                _time_start + i / dp1.points_per_second)), x1[i], "x", color="red")
 
         time_axis_plot2 = []
         for i in _time2_:
-            time_axis_plot2.append(datetime.fromtimestamp(_time_start + i).strftime("%Y %m %d %H:%M:%S"))
+            time_axis_plot2.append(datetime.fromtimestamp(
+                _time_start + i).strftime("%Y %m %d %H:%M:%S"))
         time_axis_plot2 = pd.to_datetime(time_axis_plot2)
         dataframe2 = pd.DataFrame()
         dataframe2['data'] = dp2.summed_curve
         dataframe2 = dataframe2.set_index(time_axis_plot2)
-        plt.plot(dataframe2, color="blue", linewidth=1, label=f"{dp2.observatory}")
+        plt.plot(dataframe2, color="blue", linewidth=1,
+                 label=f"{dp2.observatory}")
         for i in scipy_peaks2:
-            plt.plot(mdates.date2num(datetime.fromtimestamp(_time_start + i / dp1.points_per_second)), x2[i], "x", color="blue")
+            plt.plot(mdates.date2num(datetime.fromtimestamp(
+                _time_start + i / dp1.points_per_second)), x2[i], "x", color="blue")
 
         for i in new3:
             if not new3.index(i):
-                plt.axvline(mdates.date2num(datetime.fromtimestamp(_time_start + i / dp1.points_per_second)), linestyle="--", color="grey",
+                plt.axvline(mdates.date2num(datetime.fromtimestamp(_time_start + i / dp1.points_per_second)),
+                            linestyle="--", color="grey",
                             label="Possible Peak")
             else:
-                plt.axvline(mdates.date2num(datetime.fromtimestamp(_time_start + i / dp1.points_per_second)), linestyle="--", color="grey")
+                plt.axvline(mdates.date2num(datetime.fromtimestamp(
+                    _time_start + i / dp1.points_per_second)), linestyle="--", color="grey")
 
         ax.xaxis.set_major_locator(mdates.MinuteLocator(interval=2))
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
-        plt.xlim([mdates.date2num(time_axis_plot1[0]), mdates.date2num(time_axis_plot1[-1])])
+        plt.xlim([mdates.date2num(time_axis_plot1[0]),
+                 mdates.date2num(time_axis_plot1[-1])])
         plt.xticks(rotation=45)
         plt.legend(loc="upper left")
         plt.tight_layout()
         if save_img:
-            file_name = f"peaksData_{dp1.date.strftime(config.event_time_format_date)}_{dp1.observatory}_{dp2.observatory}.png"
+            file_name = \
+                f"peaksData_{dp1.date.strftime(config.event_time_format_date)}_{dp1.observatory}_{dp2.observatory}.png"
             plt.savefig(file_name, transparent=True)
         plt.show()
     return events_
 
 
-def getEvents(*args, mask_frq=None, r_window=None,
-              flatten=None, bin_time=None, bin_freq=None, no_bg=None,
-              flatten_window=None, bin_time_width=None, limit=None):
+def getEvents(*args: Union[data.DataPoint, int, str, stations.Station], mask_frq: bool or None = None,
+              r_window: int or None = None, flatten: bool or None = None, bin_time: bool or None = None,
+              bin_freq: bool or None = None, no_bg: bool or None = None, flatten_window: int or None = None,
+              bin_time_width: int or None = None, limit: float or None = None) \
+        -> events.EventList:
+    """
+    Calculates Bursts with Correlation limit and peak finder method. Returns Burst only if both methods find the burst
+
+    :param args: 2 DataPoints   _or_   date (datetime, or 3+ ints) and 2 stations
+    :param mask_frq:
+    :param r_window:
+    :param flatten:
+    :param bin_time:
+    :param bin_freq:
+    :param no_bg:
+    :param flatten_window:
+    :param bin_time_width:
+    :param limit: for correlation method
+    :return: events.EventList
+    """
     date = None
     dp1 = None
     dp2 = None
@@ -451,7 +594,8 @@ def getEvents(*args, mask_frq=None, r_window=None,
         date = dp1.spectrum_data.start
 
     if date is None or obs2 is None:
-        raise ValueError("Needs either datetime and 2 stations   or   2 datapoints as args")
+        raise ValueError(
+            "Needs either datetime and 2 stations   or   2 datapoints as args")
 
     e_list = events.EventList([], date)
     dp1, dp2, cor = calcPoint(date, obs1=obs1, obs2=obs2, data_point_1=dp1, data_point_2=dp2,
@@ -466,26 +610,43 @@ def getEvents(*args, mask_frq=None, r_window=None,
     return e_list
 
 
-def filename(*date, step: int):
+def filename(*date: Union[datetime, int], step: int) -> str:
+    """
+    Path and name of a result file based on date of calculation and step (id)
+
+    :param date: calculation date
+    :param step: id of the file
+    :return: str
+    """
     date_ = config.getDateFromArgs(*date)
     return config.path_results + f"{date_.year}/{date_.month:02}/" + \
                                  f"{date_.year}_{date_.month:02}_{date_.day:02}_step{step}"
 
 
-def saveData(*date, step: int, event_list: events.EventList):
+def saveData(*date: Union[datetime, int], step: int, event_list: events.EventList) -> None:
     """
+    saves an EventList to a binary file in the result folder
+
+    :param date: calculation date
+    :param step: id of the file
+    :param event_list: input data
     """
     date_ = config.getDateFromArgs(*date)
     file_name = filename(date_, step=step)
     folder = file_name[:file_name.rfind("/")+1]
     if not (os.path.exists(folder) and os.path.isdir(folder)):
         os.makedirs(folder)
-    with open(filename(date_, step=step), "wb") as file:
+    with open(filename(date_, step=step), "wb+") as file:
         pickle.dump(event_list, file)
 
 
 def loadData(*date, step: int) -> events.EventList:
     """
+    loads a result file (created with saveData()) to an EventList
+
+    :param date: calculation date
+    :param step: id of the file
+    :return: event_list: data
     """
     date_ = config.getDateFromArgs(*date)
     with open(filename(date_, step=step), "rb") as read_file:

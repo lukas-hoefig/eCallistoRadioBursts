@@ -2,11 +2,10 @@
 # -*- coding: utf-8 -*-
 
 """
-functions and algorithm for the realtime implementation
+ -  ROBUST  -
+ - realtime.py -
 
-:authors: 	Lukas Höfig
-:contact: 	lukas.hoefig@edu.uni-graz.at
-:date:       02.10.2022
+functions and algorithm for the realtime implementation
 """
 
 import copy
@@ -17,6 +16,8 @@ from typing import List, Union
 from ftplib import FTP
 import shutil
 import pickle
+from urllib.error import HTTPError, URLError
+from socket import gaierror
 
 import analysis
 import config
@@ -32,15 +33,12 @@ token_download = "token1"
 token_handle = "token2"
 token_auth = "token3"
 
-ftp_server = "147.86.8.73"
-ftp_acc = 'solarradio'
-ftp_psswd = 'solar$251'
-ftp_directory = 'XCHG'
 
-# observatories = ["AUSTRIA-UNIGRAZ", "AUSTRIA-OE3FLB", "SWISS-Landschlacht"]
-
-
-def deleteOldFiles(*date):
+def deleteOldFiles(*date) -> None:
+    """
+    removes ecallisto files from two days ago to save memory
+    :param date: empty or date to remove files
+    """
     if date:
         date_ = config.getDateFromArgs(*date)
     else:
@@ -52,7 +50,10 @@ def deleteOldFiles(*date):
         pass
 
 
-def stationsToday():
+def stationsToday() -> List[stations.Station]:
+    """
+    looks for available stations for the current day from external files
+    """
     all_files = os.listdir(config.pathDataDay(datetime.datetime.today()))
     observatories = []
     for file in all_files:
@@ -66,23 +67,11 @@ def stationsToday():
     return observatories
 
 
-def downloadFtpNewFiles(path: str):
-    with FTP(ftp_server) as ftp:
-        ftp.login(ftp_acc, ftp_psswd)
-        ftp.cwd(ftp_directory)
-        files = ftp.nlst()
-        print(f"Downloading files from server: {len(files)}")
-        for i in enumerate(files):
-            print(f"{i[0] + 1:4} ({ftp.size(i[1]) / 1024:9.3f} kB): {i[1]}           ", end="\r")
-            with open(path + i[1], 'wb') as fp:
-                # CMD = 'RETR ' + config.pathDataDay(datetime.datetime.today()) + i
-                CMD = 'RETR ' + i[1]
-                ftp.retrbinary(CMD, fp.write)
-        ftp.quit()
-    print("All files downloaded successfully                                         ")
-
-
-def getFilesFromExtern(observatories=None):
+def getFilesFromExtern(observatories=None) -> None:
+    """
+    downloads files for a set of stations, if none are given, it downloads  set of handpicked ones
+    :param observatories:
+    """
     if observatories is None:
         observatories = ["AUSTRIA-UNIGRAZ", "AUSTRIA-OE3FLB", "SWISS-Landschlacht", "BIR", "HUMAIN", "ALASKA-HAARP",
                          "ALASKA-COHOE", "GLASGOW", "Australia-ASSA", "ROSWELL-NM", "ALMATY", "Arecibo-Observatory",
@@ -96,6 +85,10 @@ def getFilesFromExtern(observatories=None):
 
 
 def getDate(file: str):
+    """
+    creates a datetime object from name of an e-Callisto file
+    :param file: filename
+    """
     reader = file.rsplit('/')[-1]
     reader = reader.rsplit('_')
 
@@ -109,7 +102,12 @@ def getDate(file: str):
     return datetime.datetime(year, month, day, hour, minute, second)
 
 
-def dropOld(list_str: List[List[str]], num=2):
+def dropOld(list_str: List[List[str]], num=2) -> List[List[str]]:
+    """
+    removes all old files from a list
+    :param list_str: [[datetime:newest file_station_i, filenames_station_i],]
+    :param num: number of allowed files / station
+    """
     new = [i[-num:] for i in list_str]
     newest_all = [getDate(i[-1]) for i in new]
     newest = max(newest_all)
@@ -119,6 +117,10 @@ def dropOld(list_str: List[List[str]], num=2):
 
 
 def getFiles(observatories: List[Union[str, stations.Station]]):
+    """
+    collects all files relevant for this calculation, gets all observatories, gets all files for those, removes old ones
+    :param observatories:
+    """
     for i in enumerate(observatories):
         if isinstance(i[1], str):
             observatories[i[0]] = stations.Station(i[1], stations.getFocusCode(datetime.datetime.today(), station=i[1]))
@@ -133,21 +135,37 @@ def getFiles(observatories: List[Union[str, stations.Station]]):
     return files_filtered
 
 
-def filename(date=None):
+def filename(date=None) -> str:
+    """
+    file name for save file incl. path
+    :param date:
+    """
     if date is None:
         date = datetime.datetime.today()
     else:
         date = config.getDateFromArgs(date)
-    return config.path_realtime + config.pathDay(date) + f"{date.year}_{date.month}_{date.day}"
+    return config.path_realtime + config.pathDay(date) + f"{date.year}_{date.month:02}_{date.day:02}"
 
 
-def saveRealtimeTxt(event_list: events.EventList, date=None):
+def saveRealtimeTxt(event_list: events.EventList, date=None) -> None:
+    """
+    saves current event list as txt output file
+    :param event_list:
+    :param date:
+    """
     file_name = filename(date=date) + ".txt"
     with open(file_name, "w+") as file:
         file.write("\n".join([events.header(), str(event_list)]))
 
+    nextcloud.uploadToCloud(file_name)
 
-def saveRealTime(event_list: events.EventList, date=None):
+
+def saveRealTime(event_list: events.EventList, date=None) -> None:
+    """
+    saves current event list as binary file for further calculations
+    :param event_list:
+    :param date:
+    """
     file_name = filename(date=date)
     folder = file_name[:file_name.rfind("/") + 1]
     if not (os.path.exists(folder) and os.path.isdir(folder)):
@@ -159,6 +177,10 @@ def saveRealTime(event_list: events.EventList, date=None):
 
 
 def loadRealTime(date=None) -> events.EventList:
+    """
+    loads realtime binary event list into memory
+    :param date: integer yyyy, mm, dd   or datetime, None for production
+    """
     if date is None:
         date = datetime.datetime.today()
     else:
@@ -176,10 +198,51 @@ def loadRealTime(date=None) -> events.EventList:
         return events.EventList([], date)
 
 
+def folderNextcloud(*date):
+    if data is None:
+        _date = datetime.datetime.today()
+    else:
+        _date = date
+    _date = config.getDateFromArgs(*date)
+    return f"/{_date.year}-{_date.month}/"
+
+
+def saveToNextCloud(event_list, date=None):
+    saveTxtToNextCloud(date=date)
+    saveImgToNextcloud(event_list)
+
+
+def saveTxtToNextCloud(date=None):
+    # file_name = os.path.join(folderNextcloud(date), filename(date=date) + ".txt")
+    file_name = "Graz_ROBUST_" + filename(date=date) + ".txt"
+    nextcloud.uploadToCloud(file_name)
+
+
+def saveImgToNextcloud(event_list: events.EventList):
+    for event in event_list:
+        folder_event = f"{event.time_start.year:02}{event.time_start.month:02}{event.time_start.day:02}-{event.time_start.hour:02}{event.time_start.minute:02}"
+        for station in event.stations:
+            dp = data.createFromEvent(event, station=station)
+            analysis.plotDatapoint(dp, save_img=True, folder=os.path.join(config.path_realtime, folder_event))
+
+        nextcloud.uploadToCloud(folder_event)
+
+
+def save(event_list, date=None):
+    saveRealTime(event_list)
+    saveRealtimeTxt(event_list)
+    saveToNextCloud(event_list, date=date)
+
+
 if __name__ == "__main__":
     today = datetime.datetime.today()
-    all_obs = stations.getStations(today)
-    getFilesFromExtern(observatories=all_obs)
+    all_obs = None
+    try:
+        all_obs = stations.getStations(today)
+    except (ConnectionResetError, HTTPError, TimeoutError, URLError, gaierror, ConnectionRefusedError):
+        pass
+    finally:
+        getFilesFromExtern(observatories=all_obs)
     # deleteOldFiles()
     obs = stationsToday()
     f = getFiles(obs)
@@ -200,14 +263,14 @@ if __name__ == "__main__":
         saveRealtimeTxt(e_list_old)
         quit()
 
-    e_list_new3 = steps.thirdStep(e_list_new2, today)
+    e_list_new3 = steps.secondStep(e_list_new2, today)
 
     if not e_list_new3:
         saveRealTime(e_list_old)
         saveRealtimeTxt(e_list_old)
         quit()
 
-    e_list_new4 = steps.fourthStep(e_list_new3, today)
+    e_list_new4 = steps.thirdStep(e_list_new3, today)
 
     if not e_list_new4:
         saveRealTime(e_list_old)

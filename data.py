@@ -1,15 +1,24 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
+"""
+ -  ROBUST  -
+ - data.py -
+
+contains the underlying data structure for spectra, loading them into python, manipulating them etc.
+low level
+"""
+
+import copy
+from datetime import datetime, timedelta
+import os
+from typing import List, Union
 
 from radiospectra.sources.callisto import CallistoSpectrogram
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import copy
-from datetime import datetime, timedelta
-import os
 from astropy.io import fits
-from typing import List, Union
 
 import config
 import stations
@@ -27,9 +36,20 @@ CURVE_FLATTEN_WINDOW = 100
 
 class DataPoint:
     """
+    eCallisto Spectra a treated as DataPoints
     """
-
     def __init__(self, file: str, debug=False):
+        """
+        eCallisto Spectra a treated as DataPoints,
+        ROBUST assumes the files are stored in the appropriate folder
+
+        debug loads all data, that can be loaded and doesn't check, whether there are obvious errors
+
+        if loading the file fails -> self.spectrum_data == None
+
+        :param file: name, path not required
+        :param debug: toggle debug - load all data that doesn't crash without plausibility check
+        """
         self.spectrum_data = None
         self.number_values = None
         self.summed_curve = []
@@ -54,15 +74,19 @@ class DataPoint:
         self.date = datetime(self.year, self.month, self.day, self.hour, self.minute, self.second)
 
         try:
-            self.observatory = stations.getStationFromFile(config.pathDataDay(self.date) + file)
+            self.observatory = stations.getStationFromFile(os.path.join(config.pathDataDay(self.date) + file))
             self.spectral_range_id = focus_code
-        except AttributeError:
+        except (AttributeError, TypeError, OSError):
             self.observatory = None
             self.spectral_range_id = None
             return
         self.path = config.pathDataDay(self.date)
-
-        self.readFile()
+        
+        try:
+            self.readFile()
+        except OSError:
+            self.spectrum_data = None
+            
         if not self:
             return
         self.cleanUpData()
@@ -72,6 +96,7 @@ class DataPoint:
 
     def __add__(self, other):
         """
+        merge files of the same station, focus code and frequency range
 
         :param other:
         :return:
@@ -82,8 +107,12 @@ class DataPoint:
             return temp2
         if temp2.spectrum_data is None:
             return temp1
-        temp1.spectrum_data = CallistoSpectrogram.join_many([temp1.spectrum_data, temp2.spectrum_data], maxgap=None)
-        temp1.number_values = len(temp1.spectrum_data.time_axis)
+        try:
+
+            temp1.spectrum_data = CallistoSpectrogram.join_many([temp1.spectrum_data, temp2.spectrum_data], maxgap=None)
+            temp1.number_values = len(temp1.spectrum_data.time_axis)
+        except ValueError:
+            return temp1
         if temp1.binned_freq != temp2.binned_freq:
             temp1.binDataFreq()
             temp2.binDataFreq()
@@ -107,7 +136,7 @@ class DataPoint:
     def __bool__(self):
         return bool(self.spectrum_data)
 
-    def readFile(self):
+    def readFile(self) -> None:
         """
         reads data from file
         called by __init__
@@ -117,7 +146,7 @@ class DataPoint:
             if self.observatory is not None and self.observatory.name not in station:
                 download.downloadFullDay(self.date, station=[self.observatory.name])
 
-        file = self.path + self.file_name
+        file = os.path.join(self.path + self.file_name)
 
         if self.hour == 23 and self.minute > 30:
             self.spectrum_data = self.readFalseDateFile()
@@ -127,15 +156,28 @@ class DataPoint:
             except TypeError:
                 self.spectrum_data = None
                 return
+            except IndexError:
+                self.spectrum_data = None
+                return
+        if self.spectrum_data.start.day != self.day:
+            self.spectrum_data = None
+            return
         self.number_values = min(self.spectrum_data.data.shape[1], len(self.spectrum_data.time_axis))
         self.points_per_second = self.number_values / (
                     self.spectrum_data.end - self.spectrum_data.start).total_seconds()
         self.binned_time_width = np.around(config.DATA_POINTS_PER_SECOND / self.points_per_second, 0)
+        if not self.binned_time_width:
+            self.binDataTime(self.points_per_second / config.DATA_POINTS_PER_SECOND)
+            self.binned_time = False
         if self.binned_time_width != 1:
             self.binned_time = True
 
-    def readFalseDateFile(self):
-        file_open = fits.open(self.path + self.file_name)
+    def readFalseDateFile(self) -> CallistoSpectrogram or None:
+        """
+        read data from file if internal end time is falsely formatted
+        :return: spectrogram_data
+        """
+        file_open = fits.open(os.path.join(self.path, self.file_name))
         file_copy = copy.deepcopy(file_open)
         file_open.close()
         date_end = file_open[0].header['DATE-END']
@@ -152,6 +194,9 @@ class DataPoint:
             except TypeError:
                 self.spectrum_data = None
                 return None
+            except OSError:
+                self.spectrum_data = None
+                return None
 
         file_copy[0].header['DATE-END'] = date_end_proper_str
         file_copy[0].header['TIME-END'] = time_end_proper
@@ -163,9 +208,11 @@ class DataPoint:
             self.spectrum_data = None
             return None
 
-    def cleanUpData(self):
+    def cleanUpData(self) -> None:
         """
-        cleans up multiple broken data entries in frequency range
+        eCallisto data has junk data above and below the actual frequency range,
+        this function cleans up these broken data entries
+
         called by __init__
         """
         self.spectrum_data.data = self.spectrum_data.data[
@@ -174,13 +221,13 @@ class DataPoint:
         self.spectrum_data.freq_axis = self.spectrum_data.freq_axis[np.argmax(self.spectrum_data.freq_axis):np.argmin(
             self.spectrum_data.freq_axis) + 1]
 
-    def binDataFreq(self, bin_width=BIN_WIDTH_FREQUENCY, method='median'):
+    def binDataFreq(self, bin_width=BIN_WIDTH_FREQUENCY, method='median') -> None:
         """
-        bins the data into bigger frequency ranges (2 MHz),
+        bins the data into bigger frequency ranges (default: 2 MHz),
         reduces the impact of outliers and false signals
 
         :param bin_width: number of data points per bin
-        :param method: 'median' or 'mean' as method to average over data
+        :param method: allows 'median' or 'mean' as method to smooth data
         """
         if method != 'median' and method != 'mean':
             raise Exception
@@ -207,7 +254,17 @@ class DataPoint:
         self.spectrum_data.freq_axis = frequency_range
         self.binned_freq = True
 
-    def binDataTime(self, width=BIN_FACTOR, method='median'):
+    def binDataTime(self, width=BIN_FACTOR, method='median') -> None:
+        """
+        bins data into bigger time bins (default 4Hz - 1 Hz)
+
+        does not allow binning if bin factor would result in floats
+
+        ignores command if already binned to this width  or further
+
+        :param width: #data entries to new single entry (compared to default 4)
+        :param method: allows: "mean" & "median"
+        """
         if self.binned_time:
             if self.binned_time_width >= width:
                 return
@@ -217,6 +274,8 @@ class DataPoint:
                 raise ValueError("please don't bin weird values, and avoid binning binned data if possible")
         else:
             new_width = int(np.around(width, 0))
+        if not new_width:
+            raise ValueError(f"Impossible to bin {self} to width: {width}")
         time_min = self.spectrum_data.time_axis[0]
         time_max = self.spectrum_data.time_axis[-1]
         data = self.spectrum_data.data
@@ -225,16 +284,8 @@ class DataPoint:
 
         if method == 'median':
             data_binned = np.array([pd.Series(data[i]).rolling(new_width).median() for i in range(data.shape[0])])
-            # for line in range(len(data)):
-            #     for bin_ in range(len(time_range)):
-            #         data_binned[line].append(
-            #             np.nanmedian(data[line][int(bin_ * entries_per_bin):int((bin_ + 1) * entries_per_bin)]))
         elif method == 'mean':
             data_binned = np.array([pd.Series(data[i]).rolling(new_width).mean() for i in range(data.shape[0])])
-            # for line in range(len(data)):
-            #     for bin_ in range(len(time_range)):
-            #         data_binned[line].append(
-            #             np.nanmean(data[line][int(bin_ * entries_per_bin):int((bin_ + 1) * entries_per_bin)]))
         else:
             raise Exception
 
@@ -254,15 +305,23 @@ class DataPoint:
         self.points_per_second = new_data_per_second
         self.number_values = min(self.spectrum_data.data.shape[1], len(self.spectrum_data.time_axis))
 
-    def plot(self):  # TODO if none - skip
+    def plot(self) -> None:
         """
-        plots the file
+        simple quick and dirty plot method for quick checkups
+        use analysis.plotDatapoint() instead
         """
+        if self.spectrum_data is None:
+            return
         self.spectrum_data.peek()
 
-    def createSummedCurve(self, frequency_range=None, debug=False):
+    def createSummedCurve(self, frequency_range: List[float] or None = None, debug: bool = False) -> None:
         """
-        creates summed up curve
+        creates summed intensity curve, takes whole frequency range if not defined
+
+        debug == False: sets unreasonably low values to median(curve)
+
+        :param frequency_range: optional: upper and lower frequency values
+        :param debug: toggle to set unreasonably low values to median of the curve
         """
         if frequency_range is None:
             frequency_range = [self.spectrum_data.freq_axis[-1], self.spectrum_data.freq_axis[0]]
@@ -282,7 +341,12 @@ class DataPoint:
             curve[mask] = np.nanmedian(curve)
             self.summed_curve = curve.tolist()
 
-    def plausibleDataCheck(self):
+    def plausibleDataCheck(self) -> None:
+        """
+        ignores faulty data, if constant very high values get recognised
+
+        call by __init__ if not debug mode
+        """
         self.createSummedCurve()
         self.flattenSummedCurve()
         max_values = np.argwhere(self.summed_curve > np.nanmax(self.summed_curve) * 0.98)
@@ -290,13 +354,26 @@ class DataPoint:
             self.spectrum_data = None
         self.summed_curve = []
 
-    def subtractBackground(self):
+    def subtractBackground(self) -> None:
+        """
+        subtracts background, possibly only mean per frequency
+        """
         if self.background_subtracted:
             return
         self.spectrum_data = self.spectrum_data.subtract_bg()
         self.background_subtracted = True
 
-    def flattenSummedCurve(self, rolling_window=CURVE_FLATTEN_WINDOW):
+    def flattenSummedCurve(self, rolling_window: None or int = None) -> None:
+        """
+        subtracts median of the curve dynamically if the curve is longer than 3 * default file length of a spectrum
+
+        subtracts flat median, if shorter
+
+        :param rolling_window: optional rolling window for dynamic median subtraction
+        """
+        if rolling_window is None:
+            rolling_window = CURVE_FLATTEN_WINDOW
+
         if self.number_values > 3 * config.LENGTH_FILES_MINUTES * 60 * config.DATA_POINTS_PER_SECOND:
             median = np.array(pd.Series(self.summed_curve).rolling(rolling_window).median())
             self.flattened_window = rolling_window
@@ -307,35 +384,59 @@ class DataPoint:
         self.summed_curve = arr - median
         self.flattened = True
 
-    def plotSummedCurve(self, ax, peaks=None, label=None, color=None):
+    def plotSummedCurve(self, ax, peaks: None or List[str] = None, label=None, color=None) \
+            -> any:
+        """
+        get matplotlib lineplot element for the summed intensity curve
+
+        consider using analysis.plotDatapoint() instead if you want the spectra itself as well
+
+        :param ax: matplotlib axis to attach the curve to
+        :param peaks: optional: str in %H:%M:%S format
+        :param label:
+        :param color:
+        :return: matplotlib plot
+        """
         return plotCurve(self.spectrum_data.time_axis, self.summed_curve, self.spectrum_data.start.timestamp(),
-                         self.binned_time, self.binned_time_width, ax, peaks=peaks, new_ax=True, label=label,
+                         ax, peaks=peaks, new_ax=True, label=label,
                          color=color)
 
-    def fileName(self):
+    def fileName(self) -> str:
+        """
+        unique identifiable filename of resulting plot
+
+        :return: filename
+        """
         return f"{self.year}_{self.month:02}_{self.day:02}_{self.observatory}" \
                f"{['', '_nobg'][self.background_subtracted]}" \
                f"{['', '_binfreq'][self.binned_freq]}" \
                f"{['', f'_bintime_{self.binned_time_width}'][self.binned_time]}" \
                f"{['', f'_flatten_{self.flattened_window}'][self.flattened]}.png"
 
-    def dateTime(self):
+    def dateTime(self) -> datetime:
+        """
+        *TODO should not exist, self.date exists
+        :return: datetime of file start
+        """
         return datetime(year=self.year, month=self.month, day=self.day,
                         hour=self.hour, minute=self.minute, second=self.second)
 
-    def cutToTime(self, start=None, end=None):
+    def cutToTime(self, start: datetime or None = None, end: datetime or None = None) -> None:
         """
-        TODO
+        Cuts spectrum to new start and end times
+        TODO: implement
         """
-        pass
+        raise NotImplementedError("Feature not implemented yet.")
 
 
-def createDayList(*date, station: Union[stations.Station, str], debug=False) -> List[DataPoint]:
+def createDayList(*date: Union[int, datetime], station: Union[stations.Station, str], debug=False) \
+        -> List[DataPoint]:
     """
     Creates a list with DataPoints for a specific day for a Observatory with a specific spectral range
 
     :param date: datetime or Ints for year, month, day
     :param station:
+    :param debug: toggle debug mode (enabled: load all data, even obviously corrupted ones, that can be loaded)
     :return: List[DataPoints]
     """
     date_ = config.getDateFromArgs(*date)
@@ -359,31 +460,46 @@ def createDayList(*date, station: Union[stations.Station, str], debug=False) -> 
     for file in files_observatory:
         try:
             data_day.append(DataPoint(file, debug=debug))
-        except TypeError:
-            # corrupt file
+        except (TypeError, ValueError, AttributeError):
+            # AttributeError, TypeError : corrupt file
+            # ValueError: invalid spectral range id
             pass
-        except ValueError:
-            # invalid spectral range id
-            pass
-        except AttributeError:
-            # data point
-            pass
+
     data_day_return = [i for i in data_day if i]
     return data_day_return
 
 
-def createDay(*date, station: Union[stations.Station, str], debug=False) -> DataPoint:
+def createDay(*date: Union[int, datetime], station: Union[stations.Station, str], debug=False) -> DataPoint:
+    """
+    creates a single DataPoint for all data of a day fora station, if station is a str, and the station has multiple
+    accepted focus codes, it takes the lower one.
+
+    :param date: date
+    :param station: station, if str: takes the first focus code that fulfills parameter of config
+    :param debug: ignore obvious wrong data in non-debug mode
+    :return: DataPoint of all data for a day
+    """
     return sum(createDayList(*date, station=station, debug=debug))
 
 
-def createFromTime(*date, station: Union[stations.Station, str], extent=True, debug=False) -> DataPoint:
+def createFromTime(*date: Union[int, datetime], station: Union[stations.Station, str], extent=True, debug=False) \
+        -> DataPoint:
+    """
+    creates DataPoint for a datetime and station, extent loads closest next/previous file to the edge of the file.
+
+    :param date: datetime
+    :param station:
+    :param extent: use data from adjacent file
+    :param debug: passes debug argument to Datapoint upon creation - loads invalid files
+    :return:
+    """
     date_ = config.getDateFromArgs(*date)
 
     if isinstance(station, str):
-        spectral_id = stations.getFocusCode(date_, station=station)
+        focus_code = stations.getFocusCode(date_, station=station)
         station_name = station
     else:
-        spectral_id = station.focus_code
+        focus_code = station.focus_code
         station_name = station.name
 
     path = config.pathDataDay(date_)
@@ -391,7 +507,7 @@ def createFromTime(*date, station: Union[stations.Station, str], extent=True, de
     time_target = date_.hour * 3600 + date_.minute * 60 + date_.second
     files_filtered = []
     for file in files:
-        if file.startswith(station_name + stations.seperator) and file.endswith(spectral_id + file_ending):
+        if file.startswith(station_name + stations.seperator) and file.endswith(focus_code + file_ending):
             files_filtered.append(file)
     for i, file in enumerate(files_filtered):
         time_read = file.rsplit('_')[2]
@@ -416,9 +532,17 @@ def createFromTime(*date, station: Union[stations.Station, str], extent=True, de
     raise FileNotFoundError("No file for the specified time and station found.")
 
 
-def createFromEvent(event: events.Event, station=None, debug=False, extent=True):
+def createFromEvent(event: events.Event, station: stations.Station or None = None,
+                    debug: bool = False, extent: bool = True) -> DataPoint:
     """
-    TODO
+    creates a DataPoint from an Event with either the default station or a specific one
+
+    :param event:
+    :param station: specifies station to create object from,
+        only applies if station is part fo event or if event has no stations
+    :param debug: passes debug argument to Datapoint upon creation - loads invalid files
+    :param extent: use data from adjacent file if too little data is in source file
+    :return:
     """
     time_start = event.time_start
     time_end = event.time_end
@@ -472,44 +596,72 @@ def createFromEvent(event: events.Event, station=None, debug=False, extent=True)
     return dp
 
 
-def frqProfile(_list: Union[DataPoint, List[DataPoint]]):
+def frqProfile(_list: Union[DataPoint, List[DataPoint]]) -> str:
     """
     most frequent freq id of a list of datapoints
+
+    :param _list:
+    :return:
     """
     if isinstance(_list, DataPoint):
         _list = [_list]
-    fa = [i.spectrum_data.header["FRQFILE"] for i in _list]
+    fa = []
+    for i in _list:
+        try:
+            fa.append(i.spectrum_data.header["FRQFILE"])
+        except KeyError:
+            pass
     fsets = set(fa)
     count = [fa.count(i) for i in fsets]
     return list(fsets)[count.index(max(count))]
 
 
-def cutFreqProfile(day: List[DataPoint], frq_profile):
-    return [i for i in day if (i.spectrum_data and i.spectrum_data.header["FRQFILE"] == frq_profile)]
+def cutFreqProfile(_list: List[DataPoint], frq_profile: str) -> List[DataPoint]:
+    """
+    cuts list of datapoints to datapoints of the same frq_profile
+    :param _list:
+    :param frq_profile:
+    :return:
+    """
+    return [i for i in _list if (i.spectrum_data and i.spectrum_data.header["FRQFILE"] == frq_profile)]
 
 
-def cutDayBefore(day: List[DataPoint], hour_limit: datetime):
+def cutDayBefore(day: List[DataPoint], hour_limit: datetime) -> List[DataPoint]:
+    """
+    removes entries from list earlier than hour_limit
+    :param day:
+    :param hour_limit:
+    :return:
+    """
     return [i for i in day if (i.hour >= hour_limit.hour)]
 
 
-def cutDayAfter(day: List[DataPoint], hour_limit: datetime):
+def cutDayAfter(day: List[DataPoint], hour_limit: datetime) -> List[DataPoint]:
+    """
+    removes entries from list later than hour_limit
+    :param day:
+    :param hour_limit:
+    :return:
+    """
     return [i for i in day if (i.hour <= hour_limit.hour)]
 
 
-def listDataPointDay(*date, station: stations.Station):
+def listDataPointDay(*date: Union[int, datetime], station: stations.Station) -> List[List[DataPoint]]:
     """
-
+    creates a list of [day_before, day, day_after] of datapoints for a day and station so all 24h of a day are compared
+    :param date:
+    :param station:
+    :return:
     """
-
-    date_ = config.getDateFromArgs(*date)
-    date_ = datetime(year=date_.year, month=date_.month, day=date_.day, hour=int(station.obsTime()))
+    date_dt = config.getDateFromArgs(*date)
+    date_ = datetime(year=date_dt.year, month=date_dt.month, day=date_dt.day, hour=int(station.obsTime()))
     date_ahead = date_ - timedelta(days=1)
     date_behind = date_ + timedelta(days=1)
     midnight = date_ + timedelta(hours=12)
 
-    download.downloadFullDay(date_, station=station)
-    download.downloadFullDay(date_ahead, station=station)
-    download.downloadFullDay(date_behind, station=station)
+    # download.downloadFullDay(date_, station=station)
+    # download.downloadFullDay(date_ahead, station=station)
+    # download.downloadFullDay(date_behind, station=station)
 
     day_list = createDayList(date_, station=station)
     date_ahead_list = createDayList(date_ahead, station=station)
@@ -541,8 +693,24 @@ def listDataPointDay(*date, station: stations.Station):
         return []
 
     frq_profile = frqProfile(day_list)
-    day_list = cutFreqProfile(day_list, frq_profile)
-    return [day_list]
+    return [cutFreqProfile(day_list, frq_profile)]
+
+
+def listDataPointDayEuropeUT(*date: Union[int, datetime], station: stations.Station) -> List[List[DataPoint]]:
+    """
+    creates a data structure as listDataPointDay() but only for EU UT time-zone (8:00 - 17:00)
+    :param date:
+    :param station:
+    """
+    print(station)
+    date_ = config.getDateFromArgs(*date)
+    day_list = createDayList(date_, station=station)
+    day_list_EU_UT = [file for file in day_list if config.EU_time_lower <= file.hour < config.EU_time_upper]
+    try:
+        frq_profile = frqProfile(day_list_EU_UT)
+        return [cutFreqProfile(day_list_EU_UT, frq_profile)]
+    except ValueError:
+        return []
 
 
 def fitTimeFrameDataSample(_data_point1, _data_point2):
@@ -575,10 +743,23 @@ def fitTimeFrameDataSample(_data_point1, _data_point2):
     return data_merged1, data_merged2
 
 
-def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, axis, _plot=True, peaks=None, new_ax=False,
-              label=None, color=None):
+def plotCurve(_time: List[float], _data: object, _time_start: float,
+              axis: plt.axis, peaks: List[str] or None = None,
+              new_ax: bool = False, label: str or None = None, color: str or None = None) -> any:
     """
+    plot function, deprecated, use analysis.plotEverything instead
+
+    TODO: rewrite for proper data types -> _time_start
     TODO: rewrite peaks -> events.Event | events.EventList
+    :param _time:
+    :param _data:
+    :param _time_start: unix timestamp
+    :param axis:
+    :param peaks: List of format: %H:%M:%S
+    :param new_ax: creates new axis to plot  correlation vs data
+    :param label:
+    :param color:
+    :return: matplotlib.pyplot.plot object
     """
     plotCurve.curve += 1
     time_axis_plot = []
@@ -601,7 +782,7 @@ def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, axis, _plot
 
         curve = ax.plot(dataframe, color=color, linewidth=1, label=label)
 
-        if peaks:
+        if peaks is not None and peaks:
             if not isinstance(peaks, list):
                 peaks = [peaks]
             for i in peaks:
@@ -612,7 +793,7 @@ def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, axis, _plot
         dataframe = dataframe.set_index(time_axis_plot)
         plt.xticks(rotation=90)
 
-        curve = plt.plot(dataframe, color=color, linewidth=1, label=label)
+        curve = axis.plot(dataframe, color=color, linewidth=1, label=label)
 
         if peaks:
             if type(peaks) == str:
@@ -621,12 +802,6 @@ def plotCurve(_time, _data, _time_start, _bin_time, _bin_time_width, axis, _plot
                 plt.axvline(pd.to_datetime(
                     datetime.strptime(datetime.fromtimestamp(_time_start).strftime("%Y %m %d ") + i,
                                       "%Y %m %d %H:%M:%S")), linestyle='--')
-    # functions this maybe
-    # if _plot:
-    #     plt.show()
-    # else:
-    #     plt.savefig(const.path_plots + file_name)
-    # plt.close()
     return curve
 
 

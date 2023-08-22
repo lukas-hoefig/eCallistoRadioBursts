@@ -1,15 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+"""
+ -  ROBUST  -
+ - events.py -
+
+contains low level structure and function regarding events
+"""
+
 import copy
 from datetime import datetime, timedelta
-
+import bisect
 from typing import List, Union
 
 import config
 
 MAX_STATIONS = 8
-TIME_TOLERANCE = 60
+TIME_TOLERANCE = 60    # 30
 LIMIT = 0.60
 DATA_POINTS_PER_SECOND = config.DATA_POINTS_PER_SECOND
 BIN_FACTOR = config.BIN_FACTOR
@@ -18,7 +25,7 @@ BURST_TYPE_UNKNOWN = "???"
 
 def header():
     return f"# Product: e-CALLISTO automated search by ROBUST\n" \
-           f"# Please send comments and suggestions regarding ROBUST to lukas.hoefig.edu.uni-graz.at\n" \
+           f"# Please send comments and suggestions regarding ROBUST to lukas.hoefig(at)edu.uni-graz.at\n" \
            f"#     or for general questions, comments or suggestions: christian.monstein(at)irsol.usi.ch\n" \
            f"# Missing data: ##:##-##:##\n" \
            f"#\n" \
@@ -26,7 +33,7 @@ def header():
            f"#-------------------------------------------------------------------------------"
 
 
-# TODO remove class Time()
+# TODO remove deprecated class Time()
 
 
 class Time(datetime):
@@ -76,18 +83,18 @@ class Event:
     def setTimeEnd(self, time: datetime):
         self.time_end = Time(time.year, time.month, time.day, time.hour, time.minute, time.second)
 
-    def compare(self, other):
+    def __eq__(self, other):
         delta_start = abs((self.time_start - other.time_start).total_seconds())
         delta_end = abs((self.time_end - other.time_end).total_seconds())
         delta_e1s2 = abs((self.time_end - other.time_start).total_seconds())
         delta_e2s1 = abs((self.time_start - other.time_end).total_seconds())
 
         return min(delta_start, delta_end, delta_e1s2, delta_e2s1) < timedelta(seconds=TIME_TOLERANCE).total_seconds() \
-               or (self.time_start < other.time_start and self.time_end > other.time_end) \
-               or (other.time_start < self.time_start and other.time_end > self.time_end)
+            or (self.time_start < other.time_start and self.time_end > other.time_end) \
+            or (other.time_start < self.time_start and other.time_end > self.time_end)
 
-    def __eq__(self, other):
-        return self.compare(other)
+    def __lt__(self, other):
+        return self.time_start < other.time_start and self != other
 
     def __add__(self, other):
         return EventList([self, other], self.time_start)
@@ -95,11 +102,24 @@ class Event:
     def __iadd__(self, other):
         return self.__add__(other)
 
-    def inList(self, _list):
-        for i in range(len(_list)):
-            if self.compare(_list[i]):
-                return True, i
-        return False
+    def merge(self, other):
+        if self != other:
+            raise AttributeError
+        self.probability = max(self.probability, other.probability)
+        self.stations.extend(other.stations)
+        self.stations = sorted(set(self.stations))
+        self.time_start = min(self.time_start, self.time_start)         # TODO either change this is lower tolerance
+        self.time_end = max(self.time_end, other.time_end)
+
+    def inList(self, _list):                                            # TODO add tolerance
+        i = bisect.bisect_left(_list, self)
+        return i != len(_list) and _list[i] == self
+
+    def positionInList(self, _list):
+        i = bisect.bisect_left(_list, self)
+        if i != len(_list) and _list[i] == self:
+            return i
+        return -1
 
 
 class EventList:
@@ -139,32 +159,11 @@ class EventList:
             print(type(other))
             raise TypeError("Wrong Type, should be Event")
 
-        if not other.inList(temp):
-            temp.events.append(other)
+        if not other.inList(self):
+            bisect.insort(self.events, other)
         else:
-            event_tmp = temp.events[other.inList(temp)[1]]
-            if other.probability >= event_tmp.probability:
-                event_tmp.probability = other.probability
-                for j in other.stations:
-                    if len(event_tmp.stations) < MAX_STATIONS:
-                        event_tmp.stations.append(j)
-                        event_tmp.stations = list(set(event_tmp.stations))
-                    elif j not in event_tmp.stations and len(event_tmp.stations) >= MAX_STATIONS:
-                        removed = False
-                        for stat in event_tmp.stations:
-                            if not other.stations.count(stat) and not removed:
-                                event_tmp.stations.remove(stat)
-                                event_tmp.stations.append(j)
-                                event_tmp.stations = list(set(event_tmp.stations))
-                                removed = True
-            else:
-                for j in other.stations:
-                    if len(event_tmp.stations) <= MAX_STATIONS:
-                        event_tmp.stations.append(j)
-                        event_tmp.stations = list(set(event_tmp.stations))
-                    else:
-                        pass
-        return temp
+            self.events[other.positionInList(temp)].merge(other)
+        return self
 
     def __sub__(self, other):
         temp = copy.deepcopy(self)
@@ -192,6 +191,12 @@ class EventList:
         if isinstance(other, Event):
             return self.__rsub__(other)
         return self.__sub__(other)
+
+    def insert(self, index, other):
+        if isinstance(other, Event):
+            self.events.insert(index, other)
+        else:
+            raise TypeError
 
     def __repr__(self):
         return self.__str__()

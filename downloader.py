@@ -1,12 +1,24 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+ -  ROBUST  -
+ - downloader.py -
+
+automatically downloads all available files from start date to end date
+on common connection issues: waits and tries again
+"""
+
 import download
 import datetime
 import stations
 import time
+import socket
 from concurrent.futures import TimeoutError
 
 
-start = datetime.datetime(2021, 4, 30)
-end = datetime.datetime(2022, 5, 1)
+start = datetime.datetime(2023,3, 8)
+end = datetime.datetime(2018,3, 10)
 end_reached = False
 current = start
 
@@ -20,9 +32,12 @@ while not end_reached:
             download.downloadFullDay(current, station=observatories)
             current = current + datetime.timedelta(days=1)
             passed = True
-        except TimeOutError:
+            print("Done:", current)
+        except TimeoutError:
             time.sleep(5)
         except ConnectionRefusedError:
+            time.sleep(61)
+        except socket.timeout:
             time.sleep(61)
     if current >= end:
         print("all done", current)

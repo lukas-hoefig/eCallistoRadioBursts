@@ -1,11 +1,19 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
+"""
+ -  ROBUST  -
+ - download.py -
+
+manages download of e-callisto files from website
+"""
 
 import datetime
 import radiospectra.sources.callisto as cal
 import os
 import copy
 from typing import List, Union, Tuple
+import io
 
 import config
 import stations
@@ -108,16 +116,26 @@ def createLog(*date: datetime.datetime, station: List[str], _overwrite=True):
 
     path_log = config.pathDataDay(date_)
     if _overwrite:
-        datalog = open(path_log + file_log, 'w')
+        with open(path_log + file_log, "w+") as datalog:
+            print("1", path_log + file_log)
+            print(os.path.exists(path_log + file_log))
+            writeLog(datalog, path_log, station)
     else:
-        datalog = open(path_log + file_log, "a")
+        with open(path_log + file_log, "a+") as datalog:
+            writeLog(datalog, path_log, station)
+    print("3")
+    print(os.path.exists(path_log + file_log))
+
+
+def writeLog(datalog: io.IOBase, path_log: str, station: List[str]):
     files = os.listdir(path_log)
     for station_ in station:
+        print(station_)
         if any(file.startswith(station_ + stations.seperator) for file in files):
             datalog.write(station_ + " ")
         else:
+            print("2")
             datalog.write(station_ + "- ")
-    datalog.close()
 
 
 def dataAvailable(*date) -> Tuple[bool, Union[None, List[str]]]:

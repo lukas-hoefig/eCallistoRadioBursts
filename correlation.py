@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+"""
+ -  ROBUST  -
+ - correlation.py -
+
+Contains correlation method
+"""
+
 import copy
 import numpy as np
 import pandas as pd
@@ -33,12 +40,26 @@ class Correlation:
                  r_window=default_r_window,
                  method_bin_t='median',
                  method_bin_f='median'):
-
+        """
+        Calculates correlation curve for two datapoints
+        :param data_point_1:
+        :param data_point_2:
+        :param day:
+        :param no_background:
+        :param bin_freq:
+        :param bin_time:
+        :param flatten:
+        :param bin_time_width:
+        :param flatten_window:
+        :param r_window:
+        :param method_bin_t:
+        :param method_bin_f:
+        """
         self.data_point_1 = copy.deepcopy(data_point_1)
         self.data_point_2 = copy.deepcopy(data_point_2)
 
-        self.data_per_second_1 = None       # TODO -> datapoint
-        self.data_per_second_2 = None       # TODO -> datapoint
+        self.data_per_second_1 = data_point_1.points_per_second
+        self.data_per_second_2 = data_point_2.points_per_second
 
         self.day = day
 
@@ -148,7 +169,7 @@ class Correlation:
 
         if peaks:
             if peaks[-1].burst_type == BURST_TYPE_UNKNOWN:  # TODO
-                if peaks[-1].probability == np.around(1, 3):
+                if peaks[-1].probability == np.around(1, 5):
                     peaks.pop(-1)
                 else:
                     peaks[-1].burst_type = TYPE_III
@@ -217,7 +238,7 @@ class Correlation:
         setupSummedCurve(self.data_point_2, self.frequency_range, self.flatten, self.flatten_window)
 
     def plotCurve(self, ax, peaks=None, label=None, color=None):
-        return data.plotCurve(self.time_axis, self.data_curve, self.time_start, self.bin_time, self.bin_time_width,
+        return data.plotCurve(self.time_axis, self.data_curve, self.time_start,
                               ax, peaks=peaks, new_ax=False, label=label, color=color)
 
     def modulateData(self):

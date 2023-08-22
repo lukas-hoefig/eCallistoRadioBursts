@@ -37,12 +37,16 @@ def command(date, new_args):
         if type(i[1]) == bool:
             default[i[0]] = int(i[1])
 
+    default[0] = date.year
+    default[1] = date.month
+    default[2] = date.day
+
     program = "python3"
     file = config.path_script + "calcMonth.py"
     log_path = config.path_results + config.pathDay(date)
     if not os.path.exists(log_path) or not os.path.isdir(log_path):
         os.system(f"mkdir -p {log_path}")
-    log = log_path + "log.txt"  # TODO see if this creates the file / folder / tree
+    log = log_path + f"log{date.day}.txt"  # TODO see if this creates the file / folder / tree
     args = [str(i) for i in default]
     arg_str = " ".join(args)
     log_command = f"> {log} 2>&1"
@@ -53,18 +57,29 @@ def command(date, new_args):
 if __name__ == "__main__":
     date_start = datetime.datetime(2022, 1, 1)
 
-    for rw in [100, 130, 180, 220, 400]:
-        cmd = command(date_start, [[r_w, rw], [step, 100000 + rw]])
+    months = 6
+    days = (datetime.datetime(2022, 1 + months, 1) - datetime.datetime(2022, 1, 1)).days
+    cores = 37
+    day_per_core = int(days/cores) + 1
+
+    #for day_s in [date_start + datetime.timedelta(days=i * day_per_core) for i in range(cores)]:
+    #    print(day_s)
+    #    cmd = command(day_s, [[r_w, 160], [step, 1], [flatten_w, 300]])
+    #    os.system(cmd)
+
+    for rw in [100, 130, 150, 160, 170, 180, 200, 220, 400]:
+        cmd = command(date_start, [[r_w, rw], [step, 10200000 + rw]])        # 9100000 + rw
         os.system(cmd)
 
-    for rw in [100, 130, 180, 220, 400]:
-        cmd = command(date_start, [[r_w, rw], [sub_bg, 0], [step, 200000 + rw]])
+    for flat_w in [10, 50, 100, 150, 200, 300, 400, 600, 1000, 3000]:
+        cmd = command(date_start, [[flatten_w, flat_w], [step, 11200000 + flat_w]])      # 9200000 + rw
         os.system(cmd)
 
-    for flat_w in [10, 50, 200, 400, 1000, 3000]:
-        cmd = command(date_start, [[flatten_w, flat_w], [step, 300000 + flat_w]])
+    for rw in [100, 130, 150, 160, 170, 180, 200, 220, 400]:
+        cmd = command(date_start, [[r_w, rw], [limit, 0.7],  [step, 12200000 + rw]])        # 9100000 + rw
         os.system(cmd)
 
-    for flat_w in [10, 50, 200, 400, 1000, 3000]:
-        cmd = command(date_start, [[flatten_w, flat_w], [sub_bg, 0], [step, 400000 + flat_w]])
+    for flat_w in [10, 50, 100, 150, 200, 300, 400, 600, 1000, 3000]:
+        cmd = command(date_start, [[flatten_w, flat_w], [limit, 0.7], [step, 13200000 + flat_w]])      # 9200000 + rw
         os.system(cmd)
+
