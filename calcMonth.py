@@ -3,6 +3,9 @@
 
 import datetime
 import sys
+import os 
+
+sys.path.append(os.path.join(os.path.dirname("."), "core"))
 
 import steps
 import analysis
@@ -47,14 +50,28 @@ if __name__ == '__main__':
             args[i] = type(args[i])(j)
 
     date_start = datetime.datetime(args[0], args[1], args[2])
-    for i in range(31):
-        date = date_start + datetime.timedelta(days=i)
-        data_raw = steps.dataSetDay(date, run=True)
+    date_end = datetime.datetime(args[0], args[1], 1) + datetime.timedelta(days=31)
+    date_end = datetime.datetime(date_end.year, date_end.month, 1)
+
+    # months = 6
+    # days = (datetime.datetime(2022, 1 + months, 1) - datetime.datetime(2022, 1, 1)).days
+    # cores = 37
+    # day_per_core = int(days/cores)
+    # date_end = date_start + datetime.timedelta(days=day_per_core)
+    date = date_start
+    while date <= date_end:
+        print(date)
+        if os.path.isfile(analysis.filename(date, step=args[step])):
+            date = date + datetime.timedelta(days=1)
+            print(" skipped ")
+            continue
+        data_raw = steps.dataSetDay(date, run=True, eu_ut=True)
         data_step_1 = steps.firstStep(date, data_sets=data_raw,
                                       limit=args[limit], r_w=args[r_w], nobg=args[sub_bg], mask_frq=args[mask_frq],
                                       flatten=args[flatten], flatten_w=args[flatten_w],
                                       bin_t=args[bin_t], bin_t_w=args[bin_t_w])
         analysis.saveData(date, event_list=data_step_1, step=args[step])
+        date = date + datetime.timedelta(days=1)
 
     # data_step_2 = steps.secondStep(None, date)
     # analysis.saveData(date, event_list=data_step_2, step=2)

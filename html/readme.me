@@ -1,0 +1,44 @@
+in folder:
+python -m http.server 8000
+
+http://localhost:8000/main.html
+
+
+    <div id="content">
+        //<script src="./my_sript.js"></script>
+    </div>
+
+
+    
+// Function to read text file line by line
+function readTextFile(file) {
+    fetch(file)
+        .then(response => response.text())
+        .then(text => {
+            const lines = text.split('\n');
+            const contentDiv = document.getElementById('content');
+            lines.forEach(line => {
+                const p = document.createElement('p');
+                p.textContent = line;
+                contentDiv.appendChild(p);
+            });
+        })
+        .catch(error => console.error('Error reading the file:', error))
+}
+
+// Call the function with the path to your text file
+readTextFile('testfile.txt');
+
+
+
+<h1>ROBUST</h1>
+<div id="currentDate"></div>
+<a href="/images/ROBUST/testfile.txt" download>Download File</a>
+<img id="myImage" src="default-image.png" alt="Default Image">
+<p id="stations"></p>
+<hr>
+<div id="update"></div>
+<div id="newestfile"></div>
+<script src="/images/ROBUST/CurrentDate.js"></script>
+<script src="/images/ROBUST/ChangeImg.js"></script>
+<script src="/images/ROBUST/testthings.js"></script>

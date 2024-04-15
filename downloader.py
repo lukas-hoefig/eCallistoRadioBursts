@@ -8,17 +8,21 @@
 automatically downloads all available files from start date to end date
 on common connection issues: waits and tries again
 """
+import time
+import socket
+from concurrent.futures import TimeoutError
+import sys
+import os 
+
+sys.path.append(os.path.join(os.path.dirname("."), "core"))
 
 import download
 import datetime
 import stations
-import time
-import socket
-from concurrent.futures import TimeoutError
 
 
-start = datetime.datetime(2023,3, 8)
-end = datetime.datetime(2018,3, 10)
+start = datetime.datetime(2022, 3, 24)
+end = datetime.datetime(2022, 3, 25)
 end_reached = False
 current = start
 

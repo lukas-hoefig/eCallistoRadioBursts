@@ -196,7 +196,7 @@ if not __name__ == "__main__":
     print(ee)
 
 
-if __name__ == "__main__":
+if not __name__ == "__main__":
     # step 1 -> rolling window 160 | flatten window 300
     d = []
     ds = []
@@ -217,28 +217,135 @@ if __name__ == "__main__":
     dd = np.array(d).transpose()
     ee = np.array(e).transpose()
 
-    kwargs = [{"color": "r", "label": f"missed strong"},
-              {"color": "b", "label": f"all hits"},
-              {"color": "g", "label": f"false positives"}]
-
-    """fig, ax = plt.subplots(figsize=(16, 9))
-    tax = plt.twinx(ax)
-    tax2 = plt.twinx(ax)
-    a = [ax, tax, tax2]
-    for j, i in enumerate(dd):
-        a[j].scatter(ds, i, **kwargs[j])
-    plt.show()
-
-    fig, ax = plt.subplots(figsize=(16, 9))
-    tax = plt.twinx(ax)
-    tax2 = plt.twinx(ax)
-    a = [ax, tax, tax2]
-    for j, i in enumerate(ee):
-        a[j].scatter(ds2, i, **kwargs[j])
-    plt.show()"""
-
     print(ds)
     print(dd)
     print(ds2)
     print(ee)
 
+if  not __name__ == "__main__":
+    # step 2 | bintw 6, rw  25
+
+    for bin_t_w_ in [2, 4, 6, 8]:
+        print(bin_t_w_)
+        d = []
+        ds = []
+        for r_w_ in [10, 15, 20, 25, 30, 35, 40, 45, 50]:
+            step_ = int(200000000 + bin_t_w_ * 1000 + r_w_)
+            ds.append(r_w_)
+            d.append(readResult(config.path_results +
+                                f"all_summed_results_{step_}.txt"))
+
+        dd = np.array(d).transpose()
+
+        print(ds)
+        print(dd)
+
+        print()
+
+if __name__ == "__main__":
+    # step 3
+    # mask 1, bintw 12, limit 3.0
+
+    for mask_frq_ in [0,1]:
+        print(f"mask frq: {mask_frq_}")
+        for bin_t_w_ in [4, 8, 12]:
+            print(f"bin t w: {bin_t_w_}")
+            d = []
+            ds = []
+            print(f"peak_limit_ : ")
+            for peak_limit_ in [0.8, 1.0, 1.5, 2.0, 2.5, 3.0]:
+                step_ = int(300000000 + bin_t_w_ * 1000 + mask_frq_*1000000 + peak_limit_ * 10)
+                ds.append(peak_limit_)
+                d.append(readResult(config.path_results +
+                                f"all_summed_results_{step_}.txt"))
+
+            dd = np.array(d).transpose()
+
+            print(ds)
+            print(dd)
+
+            print()
+
+if  __name__ == "__main__":
+    # step 3 append - higher limit 
+    # 
+
+    bin_t_w_ = 12 
+    for limit_skip_ in [0.7, 0.8, 0.9]:
+        print(f"skip limit: {limit_skip_}")
+        d = []
+        ds = []
+        print(f"peak limit")
+        for peak_limit_ in [2.0, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5]:
+            step_ = int(320000000 + limit_skip_ * 10000 + peak_limit_ * 10)
+            ds.append(peak_limit_)
+            d.append(readResult(config.path_results +
+                                f"all_summed_results_{step_}.txt"))
+        dd = np.array(d).transpose()
+        print(ds)
+        print(dd)
+
+        print()
+
+
+if  not __name__ == "__main__":
+    # step 3 append - higher limit p3
+    # ignore, false algorithm
+    print("new")
+    for bin_t_w_ in [4, 8, 12, 16]:
+        print(f"bin_t_w_: {bin_t_w_}")
+        d = []
+        ds = []
+        print(f"peak limit")
+        for peak_limit_ in [0.8, 1.5, 2.0, 3.0, 3.5, 4.0, 5.0, 6.0, 7.0]:
+            step_ = int(330000000 + bin_t_w_ * 10000 + peak_limit_ * 10)
+            ds.append(peak_limit_)
+            d.append(readResult(config.path_results +
+                                f"all_summed_results_{step_}.txt"))
+        dd = np.array(d).transpose()
+        print(ds)
+        print(dd)
+
+        print()
+
+
+if  __name__ == "__main__":
+    # step 3 append - higher limit p4
+    # 
+    print("new")
+    for bin_t_w_ in [4, 8, 12, 16]:
+        print(f"bin_t_w_: {bin_t_w_}")
+        d = []
+        ds = []
+        print(f"peak limit")
+        for peak_limit_ in [0.8, 1.5, 2.0, 3.0, 3.5, 4.0, 5.0, 6.0, 7.0]:
+            step_ = int(340000000 + bin_t_w_ * 10000 + peak_limit_ * 10)
+            ds.append(peak_limit_)
+            d.append(readResult(config.path_results +
+                                f"all_summed_results_{step_}.txt"))
+        dd = np.array(d).transpose()
+        print(ds)
+        print(dd)
+
+        print()
+
+if  __name__ == "__main__":
+    # step 3 append - higher limit p4
+    # 
+    print("new")
+    print("limit_skip_ = 0.7\nbin_t_w_ = 12\nmask_frq_ = 1\n")
+    for limit_skip2_ in [0.3, 0.5, 0.8, 1.0, 1.2, 1.5]:
+        print(f"limit_skip2_: {limit_skip2_}")
+        d = []
+        ds = []
+        print(f"peak limit")
+        for peak_limit_ in [4.0, 5.0, 6.0, 7.0, 8.0, 9.0]:
+            step_ = int(360000000 + limit_skip2_ * 10000 + peak_limit_ * 10)
+            ds.append(peak_limit_)
+            d.append(readResult(config.path_results +
+                                f"all_summed_results_{step_}.txt"))
+        dd = np.array(d).transpose()
+        print(ds)
+        print(dd)
+
+        print()

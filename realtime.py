@@ -19,6 +19,8 @@ import pickle
 from urllib.error import HTTPError, URLError
 from socket import gaierror
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "core"))
+
 import analysis
 import config
 import correlation
@@ -28,6 +30,7 @@ import download
 import nextcloud
 import data
 import steps
+import fileout
 
 token_download = "token1"
 token_handle = "token2"
@@ -76,7 +79,7 @@ def getFilesFromExtern(observatories=None) -> None:
         observatories = ["AUSTRIA-UNIGRAZ", "AUSTRIA-OE3FLB", "SWISS-Landschlacht", "BIR", "HUMAIN", "ALASKA-HAARP",
                          "ALASKA-COHOE", "GLASGOW", "Australia-ASSA", "ROSWELL-NM", "ALMATY", "Arecibo-Observatory",
                          "INDONESIA", "TRIEST"]
-    path_dl = config.pathDataDay(datetime.datetime.today())
+    # path_dl = config.pathDataDay(datetime.datetime.today())
     # downloadFtpNewFiles(path_dl)    <--- finally
     # nextcloud.downloadFromCloud(token_download, path=path_dl)
     # download.downloadFullDay(datetime.datetime.today(), station=observatories)
@@ -111,6 +114,7 @@ def dropOld(list_str: List[List[str]], num=2) -> List[List[str]]:
     new = [i[-num:] for i in list_str]
     newest_all = [getDate(i[-1]) for i in new]
     newest = max(newest_all)
+    fileout.updateJsonValue("newest_file", newest.strftime(config.event_time_website))
     files = [i[1] for i in enumerate(new) if
              abs((newest_all[i[0]] - newest).total_seconds()) < datetime.timedelta(minutes=3).total_seconds()]
     return files
@@ -135,7 +139,7 @@ def getFiles(observatories: List[Union[str, stations.Station]]):
     return files_filtered
 
 
-def filename(date=None) -> str:
+def filename(date=None, website=False) -> str:
     """
     file name for save file incl. path
     :param date:
@@ -144,7 +148,12 @@ def filename(date=None) -> str:
         date = datetime.datetime.today()
     else:
         date = config.getDateFromArgs(date)
-    return config.path_realtime + config.pathDay(date) + f"{date.year}_{date.month:02}_{date.day:02}"
+    if website:
+        path = os.path.join(config.path_realtime, "current")
+    else:
+        path = os.path.join(config.path_realtime, config.pathDay(date))
+
+    return os.path.join(path, f"ROBUST_Graz_{date.year}_{date.month:02}_{date.day:02}")
 
 
 def saveRealtimeTxt(event_list: events.EventList, date=None) -> None:
@@ -153,10 +162,12 @@ def saveRealtimeTxt(event_list: events.EventList, date=None) -> None:
     :param event_list:
     :param date:
     """
-    file_name = filename(date=date) + ".txt"
+    file_name = filename(date=date, website=False) + ".txt"
     with open(file_name, "w+") as file:
         file.write("\n".join([events.header(), str(event_list)]))
 
+    file_name_website = os.path.join(config.path_realtime, "current", fileout.txtFileName(date))
+    shutil.copy(file_name, file_name_website)
     nextcloud.uploadToCloud(file_name)
 
 
@@ -194,10 +205,14 @@ def loadRealTime(date=None) -> events.EventList:
     else:
         if not (os.path.exists(folder) and os.path.isdir(folder)):
             os.makedirs(folder)
+            fileout.moveDayToArchive()
+            fileout.updateJsonValue("txt_filename", fileout.txtFileName(date))
 
         return events.EventList([], date)
 
 
+#--------------------------------------------
+#thing after this gets currently used,
 def folderNextcloud(*date):
     if data is None:
         _date = datetime.datetime.today()
@@ -214,7 +229,7 @@ def saveToNextCloud(event_list, date=None):
 
 def saveTxtToNextCloud(date=None):
     # file_name = os.path.join(folderNextcloud(date), filename(date=date) + ".txt")
-    file_name = "Graz_ROBUST_" + filename(date=date) + ".txt"
+    file_name = f"Graz_ROBUST_{filename(date=date)}.txt"
     nextcloud.uploadToCloud(file_name)
 
 
@@ -231,7 +246,9 @@ def saveImgToNextcloud(event_list: events.EventList):
 def save(event_list, date=None):
     saveRealTime(event_list)
     saveRealtimeTxt(event_list)
-    saveToNextCloud(event_list, date=date)
+    fileout.saveJson(event_list)
+    fileout.saveplots(event_list)
+    #saveToNextCloud(event_list, date=date)
 
 
 if __name__ == "__main__":
@@ -252,31 +269,36 @@ if __name__ == "__main__":
     e_list_new = steps.firstStep(today, data_sets=sets)
 
     if not e_list_new:
-        saveRealTime(e_list_old)
-        saveRealtimeTxt(e_list_old)
+        save(e_list_old)
+        #saveRealTime(e_list_old)
+        #saveRealtimeTxt(e_list_old)
         quit()
 
     e_list_new2 = steps.secondStep(e_list_new, today)
 
     if not e_list_new2:
-        saveRealTime(e_list_old)
-        saveRealtimeTxt(e_list_old)
+        save(e_list_old)
+        #saveRealTime(e_list_old)
+        #saveRealtimeTxt(e_list_old)
         quit()
 
     e_list_new3 = steps.secondStep(e_list_new2, today)
 
     if not e_list_new3:
-        saveRealTime(e_list_old)
-        saveRealtimeTxt(e_list_old)
+        save(e_list_old)
+        #saveRealTime(e_list_old)
+        #saveRealtimeTxt(e_list_old)
         quit()
 
     e_list_new4 = steps.thirdStep(e_list_new3, today)
 
     if not e_list_new4:
-        saveRealTime(e_list_old)
-        saveRealtimeTxt(e_list_old)
+        save(e_list_old)
+        #saveRealTime(e_list_old)
+        #saveRealtimeTxt(e_list_old)
         quit()
 
     e_list = e_list_old + e_list_new4
-    saveRealTime(e_list)
-    saveRealtimeTxt(e_list)
+    save(e_list)
+    #saveRealTime(e_list)
+    #saveRealtimeTxt(e_list)

@@ -1,0 +1,58 @@
+{
+    "txt_filename": "Robust_Graz_20240216.txt",
+    "last_update": "16.02.2024 15:56:35",
+    "newest_file": "dummy",
+    "bursts": [
+        {
+            "name": "202201011342",
+            "type": "III",
+            "time": "13:42 - 13:45",
+            "stations": [
+                {
+                    "name": "ALGERIA-CRAAG",
+                    "file": "2022_01_01_ALGERIA-CRAAG.png"
+                },
+                {
+                    "name": "AUSTRIA-OE3FLB",
+                    "file": "2022_01_01_AUSTRIA-OE3FLB.png"
+                },
+                {
+                    "name": "AUSTRIA-UNIGRAZ",
+                    "file": "2022_01_01_AUSTRIA-UNIGRAZ.png"
+                },
+                {
+                    "name": "Arecibo-Observatory",
+                    "file": "2022_01_01_Arecibo-Observatory.png"
+                },
+                {
+                    "name": "GLASGOW",
+                    "file": "2022_01_01_GLASGOW.png"
+                },
+                {
+                    "name": "HURBANOVO",
+                    "file": "2022_01_01_HURBANOVO.png"
+                },
+                {
+                    "name": "SPAIN-PERALEJOS",
+                    "file": "2022_01_01_SPAIN-PERALEJOS.png"
+                },
+                {
+                    "name": "SWISS-HB9SCT",
+                    "file": "2022_01_01_SWISS-HB9SCT.png"
+                },
+                {
+                    "name": "SWISS-Landschlacht",
+                    "file": "2022_01_01_SWISS-Landschlacht.png"
+                },
+                {
+                    "name": "SWISS-MUHEN",
+                    "file": "2022_01_01_SWISS-MUHEN.png"
+                },
+                {
+                    "name": "TRIEST",
+                    "file": "2022_01_01_TRIEST.png"
+                }
+            ]
+        }
+    ]
+}
